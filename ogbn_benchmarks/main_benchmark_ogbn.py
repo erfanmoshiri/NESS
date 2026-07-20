@@ -74,6 +74,11 @@ def main():
                         help='Where to hold the cluster cache. cpu=frugal (1 cluster on '
                              'GPU at a time, works in tight memory); gpu=fast (all clusters '
                              'preloaded on GPU, needs full capacity).')
+    parser.add_argument('--prefill', type=str, default='fp', choices=['zero', 'fp'],
+                        help='NESS missing-node init: fp (Feature Propagation, default) or zero.')
+    parser.add_argument('--ssl_hops', type=int, default=2,
+                        help='Neighborhood size for NESS SSL targets (k-hop). >1 aggregates '
+                             'over a k-hop ball — needed at high missingness.')
     args = parser.parse_args()
 
     set_random_seed(args.seed)
@@ -216,6 +221,8 @@ def main():
             patience=args.patience,
             num_parts=args.num_parts,
             cache_device=args.cache_device,
+            prefill=args.prefill,
+            ssl_hops=args.ssl_hops,
             w_con=args.w_con,
             w_stats=args.w_stats,
             w_centroid=args.w_centroid,

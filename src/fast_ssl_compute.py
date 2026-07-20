@@ -75,6 +75,69 @@ def compute_neighborhood_stats_fast(adj, embeddings, train_id):
     return stats
 
 
+def compute_khop_neighborhood_targets(adj, embeddings, train_id, k=2):
+    """
+    k-hop neighborhood SSL targets via vectorized sparse propagation.
+
+    At high missingness a 1-hop neighborhood is mostly empty; aggregating over a
+    k-hop ball collects enough OBSERVABLE nodes for a meaningful target. Computes,
+    for each node, the centroid (mean) and spread (std) of observable-node
+    embeddings reachable within k hops, weighted by walk count.
+
+    Fully vectorized: 2k sparse matmuls (seconds on 169k-node arxiv).
+
+    Args:
+        adj: sparse adjacency [N, N]
+        embeddings: [N, D] (masked nodes may be 0; only observable contribute)
+        train_id: observable node indices
+        k: number of hops
+
+    Returns:
+        (centroid [N, D], std [N, D])
+    """
+    print(f'  Computing {k}-hop neighborhood targets (FAST vectorized)...')
+    device = embeddings.device
+    num_nodes, D = embeddings.size(0), embeddings.size(1)
+
+    adj = adj.coalesce()
+    idx, val = adj.indices(), adj.values()
+    # row-normalize so k-hop propagation stays scale-stable
+    deg = torch.zeros(num_nodes, device=device).scatter_add_(0, idx[0], val).clamp(min=1)
+    norm_val = val / deg[idx[0]]
+    A = torch.sparse_coo_tensor(idx, norm_val, (num_nodes, num_nodes)).coalesce()
+
+    obs = torch.zeros(num_nodes, 1, device=device)
+    obs[train_id] = 1.0
+    x = embeddings * obs          # zero-out non-observable contributions
+    xsq = (embeddings ** 2) * obs
+
+    # accumulate observable feature mass, squared-mass, and count over k hops
+    acc_x = torch.zeros(num_nodes, D, device=device)
+    acc_xsq = torch.zeros(num_nodes, D, device=device)
+    acc_c = torch.zeros(num_nodes, 1, device=device)
+    cur_x, cur_xsq, cur_c = x, xsq, obs
+    for _ in range(k):
+        cur_x = torch.sparse.mm(A, cur_x)
+        cur_xsq = torch.sparse.mm(A, cur_xsq)
+        cur_c = torch.sparse.mm(A, cur_c)
+        acc_x += cur_x
+        acc_xsq += cur_xsq
+        acc_c += cur_c
+
+    c = acc_c.clamp(min=1e-12)
+    centroid = acc_x / c
+    var = (acc_xsq / c) - centroid ** 2
+    std = var.clamp(min=0).sqrt()
+
+    # nodes that reached no observable neighbor within k hops -> 0 target
+    no_signal = (acc_c.squeeze(1) < 1e-12)
+    centroid[no_signal] = 0.0
+    std[no_signal] = 0.0
+
+    print(f'    ✓ k-hop targets computed ({no_signal.sum().item():,} nodes had no observable within {k} hops)')
+    return centroid, std
+
+
 def compute_neighborhood_residual_fast(adj, embeddings, train_id):
     """
     Fast vectorized computation of neighborhood centroid residuals.

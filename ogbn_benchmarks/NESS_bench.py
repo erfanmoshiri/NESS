@@ -28,27 +28,32 @@ from models.NESS import (
 from src.utils import MaskEdge
 
 
-def _compute_ssl_targets(adj, features, masked_features, observable_id, device):
+def _compute_ssl_targets(adj, features, masked_features, observable_id, device, ssl_hops=1):
     """
     Compute the two SSL targets on the full graph:
-      - stats:    neighborhood embedding spread (std)   [R²~0.58 on OGBN]
-      - centroid: mean of observable neighbors' embeds  [R²~0.61 on OGBN]
+      - stats:    neighborhood embedding spread (std)
+      - centroid: mean of observable neighbors' embeddings
 
-    (Replaces the old 'residual' target, which was orthogonal to what a
-    neighborhood-aggregating GNN can learn — R²~0.14 — and did not train.)
+    ssl_hops=1 uses direct (1-hop) neighbors. ssl_hops>1 aggregates over a k-hop
+    ball — needed at high missingness where a 1-hop neighborhood is mostly empty.
+    Computed on CPU (one-time precompute); only results move to device.
     """
-    from src.fast_ssl_compute import (
-        compute_neighborhood_embedding_stats as stats_fn,
-        compute_neighborhood_centroid as centroid_fn,
-    )
-    # Compute on CPU (one-time precompute over the full 2.4M-node graph) to avoid
-    # holding the full sparse adjacency on the GPU. Only the results move to device.
     adj_cpu = adj.cpu()
     feats_cpu = features.cpu()
     obs_cpu = observable_id.cpu()
-    target_stats = stats_fn(adj_cpu, feats_cpu, obs_cpu)
-    target_centroid = centroid_fn(adj_cpu, feats_cpu, obs_cpu)
-    # Keep full targets on CPU; per-cluster slices move to GPU at cache-build time.
+
+    if ssl_hops > 1:
+        from src.fast_ssl_compute import compute_khop_neighborhood_targets
+        target_centroid, target_stats = compute_khop_neighborhood_targets(
+            adj_cpu, feats_cpu, obs_cpu, k=ssl_hops)
+    else:
+        from src.fast_ssl_compute import (
+            compute_neighborhood_embedding_stats as stats_fn,
+            compute_neighborhood_centroid as centroid_fn,
+        )
+        target_stats = stats_fn(adj_cpu, feats_cpu, obs_cpu)
+        target_centroid = centroid_fn(adj_cpu, feats_cpu, obs_cpu)
+
     return target_stats.cpu(), target_centroid.cpu()
 
 
@@ -98,7 +103,7 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
                num_classes, device, adj=None, hidden=128, encoder_channels=256,
                decoder_channels=64, dropout=0.5, lr=0.001, weight_decay=5e-5,
                epochs=200, patience=20, num_parts=50, p=0.7,
-               cache_device='cpu',
+               cache_device='cpu', prefill='fp', fp_iterations=40, ssl_hops=2,
                w_con=1.0, w_stats=1.0, w_centroid=1.0,
                log_path=None, weights_path=None):
     """
@@ -123,10 +128,25 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
     masked_features = features.clone()
     masked_features[masked_id] = 0.0
 
+    # Optional: prefill missing nodes via Feature Propagation (long-range reach),
+    # instead of leaving them at 0. Helps at high missingness where 2-hop
+    # aggregation starves.
+    if prefill == 'fp':
+        from FP import feature_propagation
+        obs_mask_bool = torch.zeros(num_nodes, dtype=torch.bool)
+        obs_mask_bool[observable_id.cpu()] = True
+        print(f'  Prefilling missing nodes via Feature Propagation ({fp_iterations} iters)...')
+        propagated = feature_propagation(
+            graph.edge_index, masked_features.cpu(), obs_mask_bool, num_nodes,
+            num_iterations=fp_iterations, device=device
+        ).cpu()
+        # Keep observable rows exact; fill only masked rows with propagated values
+        masked_features[masked_id] = propagated[masked_id.cpu()]
+
     # SSL targets (once, on full graph)
-    print('  Computing SSL targets (neighborhood stats + centroid)...')
+    print(f'  Computing SSL targets (neighborhood stats + centroid, {ssl_hops}-hop)...')
     target_stats, target_centroid = _compute_ssl_targets(
-        adj, features, masked_features, observable_id, device)
+        adj, features, masked_features, observable_id, device, ssl_hops=ssl_hops)
 
     obs_mask_full = torch.zeros(num_nodes, dtype=torch.bool)
     obs_mask_full[observable_id.cpu()] = True
