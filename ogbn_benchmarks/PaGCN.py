@@ -90,7 +90,7 @@ def _normalize_adj(edge_index, num_nodes, device):
 def train_PaGCN(graph, features, labels, observable_id, masked_id, vali_id, test_id,
                 num_classes, device, hidden=256, dropout=0.5, lr=0.01,
                 weight_decay=5e-4, epochs=200, patience=20, num_parts=50,
-                log_path=None):
+                log_path=None, weights_path=None):
     """
     Cluster-based training (same scalability approach as our MATE_ogbn).
 
@@ -130,6 +130,7 @@ def train_PaGCN(graph, features, labels, observable_id, masked_id, vali_id, test
             test_id=test_id.to(device),
             device=device, epochs=epochs, patience=patience,
             log_path=log_path, model_name='PaGCN',
+            weights_path=weights_path,
         )
 
     # ---- Large graph: cluster-based training ----
@@ -212,6 +213,9 @@ def train_PaGCN(graph, features, labels, observable_id, masked_id, vali_id, test
     total_train_time = time.time() - train_start
     if best_state is not None:
         model.load_state_dict(best_state)
+
+    if weights_path is not None:
+        torch.save(model.state_dict(), weights_path)
 
     test_f1 = _eval(model, cluster_cache, labels, test_id, device)
     print(f'  Best Val F1: {best_val_f1:.4f} | Test F1: {test_f1:.4f}')

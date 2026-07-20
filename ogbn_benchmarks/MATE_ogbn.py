@@ -125,7 +125,7 @@ def train_MATE_ogbn(graph, features, labels, observable_id, masked_id,
                     hidden=128, encoder_channels=256, decoder_channels=64,
                     dropout=0.5, lr=0.001, weight_decay=5e-5,
                     epochs=200, patience=20, num_parts=50, p=0.7,
-                    log_path=None):
+                    log_path=None, weights_path=None):
     """
     Args:
         graph: PyG Data with edge_index
@@ -325,6 +325,9 @@ def train_MATE_ogbn(graph, features, labels, observable_id, masked_id,
 
     if best_state is not None:
         model.load_state_dict(best_state)
+
+    if weights_path is not None:
+        torch.save(model.state_dict(), weights_path)
 
     test_f1 = _eval(model, cluster_cache, labels, test_id, device, obs_mask_full)
     print(f'  Best Val F1: {best_val_f1:.4f} | Test F1: {test_f1:.4f}')

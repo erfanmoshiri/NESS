@@ -156,8 +156,8 @@ F1 and losses over epochs, Ours vs MATE. Supports the observed "MATE classificat
 - **Imputation-quality metrics (Recall@K/NDCG)** — dropped; different task.
 
 ### Engineering / refactor TODOs (not experiments)
-- **Port our model into `ogbn_benchmarks/`** as `Ours.py` so all methods share one runner (`main_benchmark_ogbn.py`), one protocol, and one logging format. Currently our model trains via `src/main_ogbn_clustered.py` (separate entry point + log format from the baselines), which makes the E1 comparison table harder to assemble consistently. Unifying this before the big experiment sweep will save effort and reduce protocol-mismatch risk.
-- **Small-dataset protocol for our model** — `src/main_ogbn_clustered.py` is OGBN-specific; needs the same full-batch (<100k) path the baselines now have, or fold it into the unified runner above.
+- ✅ **DONE — Port our model into `ogbn_benchmarks/`** as `NESS_bench.py` (`--model NESS`). Runs through the unified runner with identical folder/log/save format and full-batch (<100k) + cluster paths. `src/main_ogbn_clustered.py` is now redundant for benchmarking (kept as reference; delete once ported version is validated against it).
+- ✅ **DONE — Unified saving:** every run saves config.json, training_log.jsonl, final_results.json, model_weights.pt under `results/{model}_{dataset}_{missingness}_{rate}_{timestamp}/`.
 
 ---
 

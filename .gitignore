@@ -12,6 +12,7 @@ papers
 
 benchmark_models/results
 ogbn_benchmarks/results
+ogbn_benchmarks/old_results
 
 docs
 imputation_benchmarks/results

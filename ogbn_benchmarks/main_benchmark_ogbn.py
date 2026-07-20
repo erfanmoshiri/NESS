@@ -25,8 +25,9 @@ from KNN import train_KNN
 from MATE_ogbn import train_MATE_ogbn
 from FP import train_FP
 from PaGCN import train_PaGCN
+from NESS_bench import train_NESS
 
-MODELS = ['NeighAggre', 'GraphSAGE', 'KNN', 'MATE', 'FP', 'PaGCN']
+MODELS = ['NeighAggre', 'GraphSAGE', 'KNN', 'MATE', 'FP', 'PaGCN', 'NESS']
 
 
 def get_run_dir(args):
@@ -62,6 +63,10 @@ def main():
     # KNN specific
     parser.add_argument('--K', type=int, default=3)
     parser.add_argument('--max_hops', type=int, default=3)
+    # NESS SSL loss weights
+    parser.add_argument('--w_con', type=float, default=10.0)
+    parser.add_argument('--w_stats', type=float, default=100.0)
+    parser.add_argument('--w_residual', type=float, default=50.0)
     args = parser.parse_args()
 
     set_random_seed(args.seed)
@@ -101,6 +106,7 @@ def main():
 
     run_dir = get_run_dir(args)
     log_path = os.path.join(run_dir, 'training_log.jsonl')
+    weights_path = os.path.join(run_dir, 'model_weights.pt')
 
     # Run model
     print(f'[3/3] Running {args.model}...')
@@ -127,6 +133,11 @@ def main():
         val_f1 = f1_score(y_val, clf.predict(X_val), average='macro')
         test_f1 = f1_score(y_test, clf.predict(X_test), average='macro')
 
+        # Non-parametric: save the fitted downstream classifier as "weights"
+        import pickle
+        with open(weights_path, 'wb') as wf:
+            pickle.dump(clf, wf)
+
     elif args.model == 'GraphSAGE':
         val_f1, test_f1 = train_GraphSAGE(
             graph, features, labels,
@@ -141,6 +152,7 @@ def main():
             patience=args.patience,
             batch_size=args.batch_size,
             log_path=log_path,
+            weights_path=weights_path,
         )
 
     elif args.model == 'FP':
@@ -157,6 +169,7 @@ def main():
             patience=args.patience,
             batch_size=args.batch_size,
             log_path=log_path,
+            weights_path=weights_path,
         )
 
     elif args.model == 'PaGCN':
@@ -172,6 +185,27 @@ def main():
             epochs=args.epochs,
             patience=args.patience,
             log_path=log_path,
+            weights_path=weights_path,
+        )
+
+    elif args.model == 'NESS':
+        val_f1, test_f1 = train_NESS(
+            graph, features, labels,
+            observable_id, masked_id, vali_id, test_id,
+            num_classes=num_classes,
+            device=device,
+            adj=adj,
+            hidden=args.hidden if args.hidden != 256 else 128,
+            dropout=args.dropout,
+            lr=args.lr if args.lr != 0.01 else 0.001,
+            weight_decay=args.weight_decay,
+            epochs=args.epochs,
+            patience=args.patience,
+            w_con=args.w_con,
+            w_stats=args.w_stats,
+            w_residual=args.w_residual,
+            log_path=log_path,
+            weights_path=weights_path,
         )
 
     elif args.model == 'MATE':
@@ -187,6 +221,7 @@ def main():
             epochs=args.epochs,
             patience=args.patience,
             log_path=log_path,
+            weights_path=weights_path,
         )
 
     elif args.model == 'KNN':
@@ -209,6 +244,11 @@ def main():
         clf.fit(X_train, y_train)
         val_f1 = f1_score(y_val, clf.predict(X_val), average='macro')
         test_f1 = f1_score(y_test, clf.predict(X_test), average='macro')
+
+        # Non-parametric: save the fitted downstream classifier as "weights"
+        import pickle
+        with open(weights_path, 'wb') as wf:
+            pickle.dump(clf, wf)
 
     elapsed = time.time() - start
 

@@ -18,7 +18,8 @@ from sklearn.metrics import f1_score
 
 def train_full_batch(model, optimizer, logits_fn, labels,
                      observable_id, vali_id, test_id, device,
-                     epochs=200, patience=20, log_path=None, model_name='model'):
+                     epochs=200, patience=20, log_path=None, model_name='model',
+                     weights_path=None):
     """
     Args:
         model: nn.Module (already on device)
@@ -76,6 +77,9 @@ def train_full_batch(model, optimizer, logits_fn, labels,
     total_train_time = time.time() - train_start
     if best_state is not None:
         model.load_state_dict(best_state)
+
+    if weights_path is not None:
+        torch.save(model.state_dict(), weights_path)
 
     test_f1 = _eval_full(model, logits_fn, labels, test_id)
     print(f'  Best Val F1: {best_val_f1:.4f} | Test F1: {test_f1:.4f}')

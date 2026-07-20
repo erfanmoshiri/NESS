@@ -85,7 +85,7 @@ class SAGEClassifier(nn.Module):
 def train_FP(graph, features, labels, observable_id, masked_id, vali_id, test_id,
              num_classes, device, hidden=256, dropout=0.5, lr=0.01,
              weight_decay=5e-4, epochs=200, patience=20, batch_size=512,
-             fp_iterations=40, log_path=None):
+             fp_iterations=40, log_path=None, weights_path=None):
     """
     Args:
         graph: PyG Data with edge_index
@@ -140,6 +140,7 @@ def train_FP(graph, features, labels, observable_id, masked_id, vali_id, test_id
             test_id=test_id.to(device),
             device=device, epochs=epochs, patience=patience,
             log_path=log_path, model_name='FP',
+            weights_path=weights_path,
         )
 
     # ---- Large graph: NeighborLoader mini-batches ----
@@ -196,6 +197,9 @@ def train_FP(graph, features, labels, observable_id, masked_id, vali_id, test_id
     total_train_time = time.time() - train_start
     if best_state is not None:
         model.load_state_dict(best_state)
+
+    if weights_path is not None:
+        torch.save(model.state_dict(), weights_path)
 
     test_f1 = _eval(model, graph, propagated, labels, test_id, device)
     print(f'  Best Val F1: {best_val_f1:.4f} | Test F1: {test_f1:.4f}')
