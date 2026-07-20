@@ -157,7 +157,7 @@ def get_or_create_ssl_targets(data_root, adj, features, masked_features, observa
         from src.fast_ssl_compute import compute_neighborhood_embedding_stats, compute_neighborhood_centroid_residual
         print(f'    Using FAST vectorized computation (~2-5 minutes)...')
     except ImportError:
-        from models.MATE_embeddings import compute_neighborhood_embedding_stats, compute_neighborhood_centroid_residual
+        from models.NESS import compute_neighborhood_embedding_stats, compute_neighborhood_centroid_residual
         print(f'    Using slow loop-based computation (~30-60 minutes)...')
         print(f'    Install torch_scatter for 10-30x speedup!')
 

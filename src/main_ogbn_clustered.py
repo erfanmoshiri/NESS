@@ -18,7 +18,7 @@ import os
 import json
 import datetime
 sys.path.insert(0, '..')
-from models.MATE_embeddings import *
+from models.NESS import *
 from src.utils_ogbn import *
 from src.utils import set_random_seed, MaskEdge
 from src.cache_manager import get_or_create_masks, get_or_create_ssl_targets
@@ -36,8 +36,8 @@ parser.add_argument('--lr', type=float, default=0.001)
 parser.add_argument('--weight_decay', type=float, default=5e-5)
 
 # Clustering
-parser.add_argument('--num_parts', type=int, default=20,
-                    help='Number of graph partitions (default: 20, ~122k nodes/partition)')
+parser.add_argument('--num_parts', type=int, default=50,
+                    help='Number of graph partitions (default: 50, ~49k nodes/partition)')
 parser.add_argument('--batch_size', type=int, default=1,
                     help='Number of clusters per batch (default: 1)')
 
@@ -220,72 +220,86 @@ def main(args):
     target_stats = target_stats.to(device)
     target_residual = target_residual.to(device)
 
+    # Pre-cache per-cluster data that is fixed across all epochs
+    # Use a non-shuffled loader so cluster index i matches partptr[i]
+    print("Pre-caching cluster data...")
+    cache_loader = ClusterLoader(cluster_data, batch_size=1, shuffle=False, num_workers=0)
+    node_perm = cluster_data.partition.node_perm
+    partptr = cluster_data.partition.partptr
+    cluster_cache = []
+    for i, batch_data in enumerate(cache_loader):
+        batch_data = batch_data.to(device)
+        edge_index = batch_data.edge_index
+        global_indices = node_perm[partptr[i]:partptr[i+1]].to(device)
+        aug_edge_index, _ = add_self_loops(edge_index)
+        cluster_cache.append({
+            'x': batch_data.x,
+            'y': batch_data.y,
+            'edge_index': edge_index,
+            'aug_edge_index': aug_edge_index,
+            'global_indices': global_indices,
+            'target_stats': target_stats[global_indices],
+            'target_residual': target_residual[global_indices],
+            'num_nodes': batch_data.num_nodes,
+        })
+    print(f"  Cached {len(cluster_cache)} clusters\n")
+
     for epoch in range(1, args.epochs + 1):
         epoch_start = time.time()
         model.train()
         epoch_losses = {'total': 0.0, 'edge': 0.0, 'contrastive': 0.0, 'classification': 0.0, 'stats': 0.0, 'residual': 0.0}
         num_batches = 0
 
-        # Iterate over clusters (PyG handles everything!)
-        for batch_data in cluster_loader:
-            batch_data = batch_data.to(device)
+        # Iterate over pre-cached clusters (shuffle each epoch)
+        import random
+        random.shuffle(cluster_cache)
+        for cluster in cluster_cache:
+            edge_index = cluster['edge_index']
+            global_indices = cluster['global_indices']
 
-            # Mask edges for contrastive learning
-            remaining_edges, masked_edges = mask_edge(batch_data.edge_index)
+            # Two views via different edge masks (proper contrastive learning)
+            remaining_edges_1, masked_edges = mask_edge(edge_index)
+            remaining_edges_2, _ = mask_edge(edge_index)
 
-            # Generate negative edges (fewer for memory efficiency)
-            aug_edge_index, _ = add_self_loops(batch_data.edge_index)
-            # Sample fewer negatives for smaller clusters
-            num_neg_samples = min(masked_edges.size(1), 50000)  # Cap at 50k
+            # Generate negative edges on GPU
+            num_neg_samples = min(masked_edges.size(1), 50000)
             neg_edges = negative_sampling(
-                aug_edge_index,
-                num_nodes=batch_data.num_nodes,
-                num_neg_samples=num_neg_samples
+                cluster['aug_edge_index'],
+                num_nodes=cluster['num_nodes'],
+                num_neg_samples=num_neg_samples,
+                method='sparse'
             )
 
-            # Two views
-            z_1 = encoder(batch_data.x, remaining_edges)
-            z_2 = encoder(batch_data.x, remaining_edges)
-            z = (z_1 + z_2) * 0.5  # Fused representation
+            # Two views with different edge masks
+            z_1 = encoder(cluster['x'], remaining_edges_1)
+            z_2 = encoder(cluster['x'], remaining_edges_2)
+            z = (z_1 + z_2) * 0.5
 
-            # 1. Edge reconstruction loss (batched, with smaller batches for tiny clusters)
-            edge_batch_size = 32768  # Smaller batches = less memory
-
-            loss_edge = torch.tensor(0.0, device=device, requires_grad=True)
-
-            # Sample a subset of edges to save memory (not all edges need gradients)
-            max_edges = 100000  # Only use 100k edges max
+            # 1. Edge reconstruction loss (single GPU call, no inner loop)
+            max_edges = 100000
             if masked_edges.size(1) > max_edges:
-                perm = torch.randperm(masked_edges.size(1))[:max_edges]
+                perm = torch.randperm(masked_edges.size(1), device=device)[:max_edges]
                 masked_edges_subset = masked_edges[:, perm]
             else:
                 masked_edges_subset = masked_edges
 
             if neg_edges.size(1) > max_edges:
-                perm = torch.randperm(neg_edges.size(1))[:max_edges]
+                perm = torch.randperm(neg_edges.size(1), device=device)[:max_edges]
                 neg_edges_subset = neg_edges[:, perm]
             else:
                 neg_edges_subset = neg_edges
 
-            # Batch positive edges
-            for i in range(0, masked_edges_subset.size(1), edge_batch_size):
-                edge_batch = masked_edges_subset[:, i:i+edge_batch_size]
-                with torch.cuda.amp.autocast():  # Use mixed precision
-                    pos_out_1 = edge_decoder(z_1, z_2, edge_batch, sigmoid=False)
-                    pos_out_2 = edge_decoder(z_2, z_1, edge_batch, sigmoid=False)
-                loss_edge = loss_edge + F.binary_cross_entropy_with_logits(pos_out_1, torch.ones_like(pos_out_1))
-                loss_edge = loss_edge + F.binary_cross_entropy_with_logits(pos_out_2, torch.ones_like(pos_out_2))
-                del pos_out_1, pos_out_2, edge_batch
+            pos_out_1 = edge_decoder(z_1, z_2, masked_edges_subset, sigmoid=False)
+            pos_out_2 = edge_decoder(z_2, z_1, masked_edges_subset, sigmoid=False)
+            neg_out_1 = edge_decoder(z_1, z_2, neg_edges_subset, sigmoid=False)
+            neg_out_2 = edge_decoder(z_2, z_1, neg_edges_subset, sigmoid=False)
 
-            # Batch negative edges
-            for i in range(0, neg_edges_subset.size(1), edge_batch_size):
-                edge_batch = neg_edges_subset[:, i:i+edge_batch_size]
-                with torch.cuda.amp.autocast():
-                    neg_out_1 = edge_decoder(z_1, z_2, edge_batch, sigmoid=False)
-                    neg_out_2 = edge_decoder(z_2, z_1, edge_batch, sigmoid=False)
-                loss_edge = loss_edge + F.binary_cross_entropy_with_logits(neg_out_1, torch.zeros_like(neg_out_1))
-                loss_edge = loss_edge + F.binary_cross_entropy_with_logits(neg_out_2, torch.zeros_like(neg_out_2))
-                del neg_out_1, neg_out_2, edge_batch
+            loss_edge = (
+                F.binary_cross_entropy_with_logits(pos_out_1, torch.ones_like(pos_out_1)) +
+                F.binary_cross_entropy_with_logits(pos_out_2, torch.ones_like(pos_out_2)) +
+                F.binary_cross_entropy_with_logits(neg_out_1, torch.zeros_like(neg_out_1)) +
+                F.binary_cross_entropy_with_logits(neg_out_2, torch.zeros_like(neg_out_2))
+            ) / 4
 
             # 2. Barlow Twins contrastive loss (memory efficient + prevents redundancy)
             # Cross-correlation between views: diagonal → 1, off-diagonal → 0
@@ -308,7 +322,7 @@ def main(args):
 
             # 3. Classification loss
             logits = model.forward_classifier(z)
-            labels_batch = batch_data.y.squeeze() if batch_data.y.dim() > 1 else batch_data.y
+            labels_batch = cluster['y'].squeeze() if cluster['y'].dim() > 1 else cluster['y']
             loss_cls = F.cross_entropy(logits, labels_batch)
 
             # SKIP: Feature reconstruction loss (as requested)
@@ -317,18 +331,13 @@ def main(args):
             # Predict neighborhood embedding spread from view 1
             if model.stats_predictor is not None:
                 pred_stats = model.stats_predictor(z_1)
-                # Use batch_data.n_id to map cluster nodes to global indices
-                global_indices = batch_data.n_id if hasattr(batch_data, 'n_id') else torch.arange(z_1.size(0), device=device)
-                loss_stats = F.mse_loss(pred_stats, target_stats[global_indices])
+                loss_stats = F.mse_loss(pred_stats, cluster['target_stats'])
             else:
                 loss_stats = torch.tensor(0.0, device=device)
 
-            # 5. SSL Residual loss (YOUR MAIN CONTRIBUTION!)
-            # Predict deviation from neighborhood centroid from view 2
             if model.residual_predictor is not None:
                 pred_residual = model.residual_predictor(z_2)
-                global_indices = batch_data.n_id if hasattr(batch_data, 'n_id') else torch.arange(z_2.size(0), device=device)
-                loss_residual = F.mse_loss(pred_residual, target_residual[global_indices])
+                loss_residual = F.mse_loss(pred_residual, cluster['target_residual'])
             else:
                 loss_residual = torch.tensor(0.0, device=device)
 
@@ -348,11 +357,8 @@ def main(args):
             epoch_losses['residual'] += loss_residual.detach().item()
             num_batches += 1
 
-            # Free memory after each cluster
-            del batch_data, z_1, z_2, z, logits
+            del z_1, z_2, z, logits
             del loss_total, loss_edge, loss_con, loss_cls, loss_stats, loss_residual
-            if num_batches % 10 == 0:  # Clear cache every 10 clusters
-                torch.cuda.empty_cache()
 
         # Average losses
         for key in epoch_losses:

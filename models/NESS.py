@@ -1,3 +1,13 @@
+"""
+NESS — NEighborhood Statistics Self-supervision.
+
+Our model for node classification under missing node features. Instead of
+memorizing a per-node embedding for each missing node (as MATE does), NESS
+predicts neighborhood feature statistics from graph structure via two SSL
+objectives (neighborhood embedding spread + centroid residual), which
+generalize under missingness.
+"""
+
 import torch
 import torch.nn.functional as F
 import torch.nn as nn

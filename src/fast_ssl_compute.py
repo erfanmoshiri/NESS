@@ -142,7 +142,7 @@ def compute_neighborhood_stats_fallback(adj, embeddings, train_id):
     print('  WARNING: torch_scatter not available, using slow loop-based version')
     print('  Install with: pip install torch-scatter -f https://data.pyg.org/whl/torch-2.0.0+cu118.html')
 
-    from models.MATE_embeddings import compute_neighborhood_embedding_stats
+    from models.NESS import compute_neighborhood_embedding_stats
     return compute_neighborhood_embedding_stats(adj, embeddings, train_id)
 
 
@@ -150,7 +150,7 @@ def compute_neighborhood_residual_fallback(adj, embeddings, train_id):
     """
     Fallback to original loop-based version if torch_scatter not available.
     """
-    from models.MATE_embeddings import compute_neighborhood_centroid_residual
+    from models.NESS import compute_neighborhood_centroid_residual
     return compute_neighborhood_centroid_residual(adj, embeddings, train_id)
 
 
@@ -198,7 +198,7 @@ if __name__ == "__main__":
 
     # Time original version
     print("\n[2/2] Testing ORIGINAL version...")
-    from models.MATE_embeddings import compute_neighborhood_embedding_stats as compute_original
+    from models.NESS import compute_neighborhood_embedding_stats as compute_original
     start = time.time()
     stats_original = compute_original(adj_test, features_test, train_id_test)
     time_original = time.time() - start
