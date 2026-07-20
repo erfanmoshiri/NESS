@@ -24,7 +24,7 @@ sys.path.insert(0, '..')
 FULL_BATCH_THRESHOLD = 100_000  # graphs smaller than this train full-batch
 
 SMALL_DATASETS = ['cora', 'citeseer', 'amac', 'amap']
-LARGE_DATASETS = ['ogbn-products']
+LARGE_DATASETS = ['ogbn-products', 'ogbn-arxiv']
 
 
 def load_dataset(name, data_root=None):
@@ -32,14 +32,16 @@ def load_dataset(name, data_root=None):
     Load any supported dataset in unified format.
 
     Args:
-        name: 'cora' | 'citeseer' | 'amac' | 'amap' | 'ogbn-products'
+        name: 'cora' | 'citeseer' | 'amac' | 'amap' | 'ogbn-products' | 'ogbn-arxiv'
         data_root: root dir (OGBN only; small datasets use ../data/<name>)
 
     Returns:
         graph, adj, features, labels, num_classes
     """
-    if name in LARGE_DATASETS:
+    if name == 'ogbn-products':
         return _load_ogbn(name, data_root)
+    elif name == 'ogbn-arxiv':
+        return _load_ogbn_arxiv(data_root)
     elif name in SMALL_DATASETS:
         return _load_small(name)
     else:
@@ -52,6 +54,47 @@ def _load_ogbn(name, data_root):
     graph, adj, adj_norm, features, labels, split_idx = load_ogbn_products(root=root)
     labels = labels.squeeze() if labels.dim() > 1 else labels
     num_classes = int(labels.max().item()) + 1
+    return graph, adj, features, labels, num_classes
+
+
+def _load_ogbn_arxiv(data_root):
+    """
+    Load ogbn-arxiv (169k nodes, 128-d dense embeddings, 40 classes).
+
+    Unlike products, arxiv is a DIRECTED citation graph. We symmetrize it
+    (to_undirected) following the OGB reference implementations, so message
+    passing and neighborhood-centric SSL see the full citation context — and
+    for consistency with the other (undirected) benchmarks.
+    """
+    import torch as _torch
+    from torch_geometric.utils import to_undirected
+
+    root = data_root if (data_root and 'arxiv' in data_root) else '../data/ogbn_arxiv'
+
+    # OGB stores some arrays non-writable / needs weights_only=False on load
+    orig_load = _torch.load
+    _torch.load = lambda *a, **k: orig_load(*a, **{**k, 'weights_only': False})
+    try:
+        from ogb.nodeproppred import PygNodePropPredDataset
+        dataset = PygNodePropPredDataset(name='ogbn-arxiv', root=root)
+    finally:
+        _torch.load = orig_load
+
+    graph = dataset[0]
+    features = graph.x
+    labels = graph.y.squeeze() if graph.y.dim() > 1 else graph.y
+    num_nodes = features.size(0)
+    num_classes = int(labels.max().item()) + 1
+
+    # Symmetrize the directed citation graph
+    edge_index = to_undirected(graph.edge_index, num_nodes=num_nodes)
+    graph.edge_index = edge_index
+    graph.num_nodes = num_nodes
+
+    # Sparse adjacency (needed by SSL targets, NeighAggre, KNN)
+    vals = torch.ones(edge_index.size(1), dtype=torch.float32)
+    adj = torch.sparse_coo_tensor(edge_index, vals, (num_nodes, num_nodes)).coalesce()
+
     return graph, adj, features, labels, num_classes
 
 

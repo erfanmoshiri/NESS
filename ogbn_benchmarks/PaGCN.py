@@ -141,7 +141,7 @@ def train_PaGCN(graph, features, labels, observable_id, masked_id, vali_id, test
 
     print(f'  Partitioning graph into {num_parts} clusters...')
     cluster_data = ClusterData(graph_cpu, num_parts=num_parts,
-                               save_dir='../data/ogbn_products', log=False)
+                               save_dir=None, log=False)
 
     print('  Pre-caching clusters (with normalized adjacency)...')
     cache_loader = ClusterLoader(cluster_data, batch_size=1, shuffle=False, num_workers=0)

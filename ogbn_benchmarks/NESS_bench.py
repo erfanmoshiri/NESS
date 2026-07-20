@@ -2,7 +2,7 @@
 NESS — our model — as a unified benchmark entry.
 
 NEighborhood Statistics Self-supervision. Predicts neighborhood feature
-statistics from graph structure (spread + centroid residual) as SSL objectives,
+statistics from graph structure (neighborhood spread + centroid) as SSL objectives,
 alongside edge reconstruction, Barlow-Twins contrastive, and classification.
 
 Wraps the model components from models/NESS.py so it runs through the SAME
@@ -29,20 +29,41 @@ from src.utils import MaskEdge
 
 
 def _compute_ssl_targets(adj, features, masked_features, observable_id, device):
-    """Compute neighborhood-stats + centroid-residual SSL targets on the full graph."""
-    try:
-        from src.fast_ssl_compute import (
-            compute_neighborhood_embedding_stats as stats_fn,
-            compute_neighborhood_centroid_residual as resid_fn,
-        )
-    except ImportError:
-        from models.NESS import (
-            compute_neighborhood_embedding_stats as stats_fn,
-            compute_neighborhood_centroid_residual as resid_fn,
-        )
-    target_stats = stats_fn(adj, features, observable_id)
-    target_residual = resid_fn(adj, masked_features, observable_id)
-    return target_stats.to(device), target_residual.to(device)
+    """
+    Compute the two SSL targets on the full graph:
+      - stats:    neighborhood embedding spread (std)   [R²~0.58 on OGBN]
+      - centroid: mean of observable neighbors' embeds  [R²~0.61 on OGBN]
+
+    (Replaces the old 'residual' target, which was orthogonal to what a
+    neighborhood-aggregating GNN can learn — R²~0.14 — and did not train.)
+    """
+    from src.fast_ssl_compute import (
+        compute_neighborhood_embedding_stats as stats_fn,
+        compute_neighborhood_centroid as centroid_fn,
+    )
+    # Compute on CPU (one-time precompute over the full 2.4M-node graph) to avoid
+    # holding the full sparse adjacency on the GPU. Only the results move to device.
+    adj_cpu = adj.cpu()
+    feats_cpu = features.cpu()
+    obs_cpu = observable_id.cpu()
+    target_stats = stats_fn(adj_cpu, feats_cpu, obs_cpu)
+    target_centroid = centroid_fn(adj_cpu, feats_cpu, obs_cpu)
+    # Keep full targets on CPU; per-cluster slices move to GPU at cache-build time.
+    return target_stats.cpu(), target_centroid.cpu()
+
+
+def _cluster_to(c, device):
+    """Move a cached cluster's tensors to `device` for a single step."""
+    return {
+        'x': c['x'].to(device), 'y': c['y'].to(device),
+        'edge_index': c['edge_index'].to(device),
+        'aug_edge_index': c['aug_edge_index'].to(device),
+        'global_indices': c['global_indices'],  # only used on CPU for eval gather
+        'target_stats': c['target_stats'].to(device),
+        'target_centroid': c['target_centroid'].to(device),
+        'obs_mask': c['obs_mask'].to(device),
+        'num_nodes': c['num_nodes'],
+    }
 
 
 def _barlow_twins(z1, z2, lambda_param=0.005):
@@ -77,7 +98,8 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
                num_classes, device, adj=None, hidden=128, encoder_channels=256,
                decoder_channels=64, dropout=0.5, lr=0.001, weight_decay=5e-5,
                epochs=200, patience=20, num_parts=50, p=0.7,
-               w_con=10.0, w_stats=100.0, w_residual=50.0,
+               cache_device='cpu',
+               w_con=1.0, w_stats=1.0, w_centroid=1.0,
                log_path=None, weights_path=None):
     """
     Args:
@@ -102,8 +124,8 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
     masked_features[masked_id] = 0.0
 
     # SSL targets (once, on full graph)
-    print('  Computing SSL targets (neighborhood stats + centroid residual)...')
-    target_stats, target_residual = _compute_ssl_targets(
+    print('  Computing SSL targets (neighborhood stats + centroid)...')
+    target_stats, target_centroid = _compute_ssl_targets(
         adj, features, masked_features, observable_id, device)
 
     obs_mask_full = torch.zeros(num_nodes, dtype=torch.bool)
@@ -114,42 +136,48 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
                          decoder_channels, dropout, p, device)
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
+    # cache_dev: where cached cluster tensors live.
+    #   'gpu' -> preload all clusters on GPU (fast; needs full capacity)
+    #   'cpu' -> hold on CPU, move one cluster to GPU per step (frugal)
+    cache_dev = device if cache_device == 'gpu' else torch.device('cpu')
+
     # ---- Build cluster cache (single full-graph cluster if small) ----
     if is_small(num_nodes):
         print('  Small graph: full-batch (single cluster)')
-        mf = masked_features.to(device)
-        ei = graph.edge_index.to(device)
+        ei = graph.edge_index
         aug_ei, _ = add_self_loops(ei)
-        gidx = torch.arange(num_nodes, device=device)
+        gidx = torch.arange(num_nodes)
         cluster_cache = [{
-            'x': mf, 'y': labels.to(device),
-            'edge_index': ei, 'aug_edge_index': aug_ei,
-            'global_indices': gidx,
-            'target_stats': target_stats, 'target_residual': target_residual,
-            'obs_mask': obs_mask_full.to(device),
+            'x': masked_features.to(cache_dev), 'y': labels.to(cache_dev),
+            'edge_index': ei.to(cache_dev), 'aug_edge_index': aug_ei.to(cache_dev),
+            'global_indices': gidx.to(cache_dev),
+            'target_stats': target_stats.to(cache_dev),
+            'target_centroid': target_centroid.to(cache_dev),
+            'obs_mask': obs_mask_full.to(cache_dev),
             'num_nodes': num_nodes,
         }]
     else:
         graph_cpu = graph.clone()
         graph_cpu.x = masked_features.cpu()
         graph_cpu.y = labels.cpu()
-        print(f'  Partitioning graph into {num_parts} clusters...')
+        print(f'  Partitioning graph into {num_parts} clusters (cache_device={cache_device})...')
         cluster_data = ClusterData(graph_cpu, num_parts=num_parts,
-                                   save_dir='../data/ogbn_products', log=False)
+                                   save_dir=None, log=False)
         cache_loader = ClusterLoader(cluster_data, batch_size=1, shuffle=False, num_workers=0)
         node_perm = cluster_data.partition.node_perm
         partptr = cluster_data.partition.partptr
         cluster_cache = []
         for i, batch in enumerate(cache_loader):
-            batch = batch.to(device)
-            gidx = node_perm[partptr[i]:partptr[i+1]].to(device)
+            gidx_cpu = node_perm[partptr[i]:partptr[i+1]]
             aug_ei, _ = add_self_loops(batch.edge_index)
             cluster_cache.append({
-                'x': batch.x, 'y': batch.y,
-                'edge_index': batch.edge_index, 'aug_edge_index': aug_ei,
-                'global_indices': gidx,
-                'target_stats': target_stats[gidx], 'target_residual': target_residual[gidx],
-                'obs_mask': obs_mask_full[gidx.cpu()].to(device),
+                'x': batch.x.to(cache_dev), 'y': batch.y.to(cache_dev),
+                'edge_index': batch.edge_index.to(cache_dev),
+                'aug_edge_index': aug_ei.to(cache_dev),
+                'global_indices': gidx_cpu.to(cache_dev),
+                'target_stats': target_stats[gidx_cpu].to(cache_dev),
+                'target_centroid': target_centroid[gidx_cpu].to(cache_dev),
+                'obs_mask': obs_mask_full[gidx_cpu].to(cache_dev),
                 'num_nodes': batch.num_nodes,
             })
         print(f'  Cached {len(cluster_cache)} clusters')
@@ -166,10 +194,12 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
     for epoch in range(1, epochs + 1):
         model.train()
         epoch_start = time.time()
-        el = {'total': 0.0, 'edge': 0.0, 'con': 0.0, 'cls': 0.0, 'stats': 0.0, 'residual': 0.0}
+        el = {'total': 0.0, 'edge': 0.0, 'con': 0.0, 'cls': 0.0, 'stats': 0.0, 'centroid': 0.0}
         random.shuffle(cluster_cache)
 
-        for c in cluster_cache:
+        for c0 in cluster_cache:
+            # Move this cluster to GPU for the step (no-op if already on GPU)
+            c = _cluster_to(c0, device) if cache_device == 'cpu' else c0
             edge_index = c['edge_index']
             rem1, masked_edges = mask_edge(edge_index)
             rem2, _ = mask_edge(edge_index)
@@ -212,10 +242,10 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
 
             # SSL objectives (our contribution)
             loss_stats = F.mse_loss(model.stats_predictor(z1), c['target_stats'])
-            loss_residual = F.mse_loss(model.residual_predictor(z2), c['target_residual'])
+            loss_centroid = F.mse_loss(model.residual_predictor(z2), c['target_centroid'])
 
             loss_total = (loss_edge + w_con * loss_con + loss_cls
-                          + w_stats * loss_stats + w_residual * loss_residual)
+                          + w_stats * loss_stats + w_centroid * loss_centroid)
 
             optimizer.zero_grad()
             loss_total.backward()
@@ -226,7 +256,7 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
             el['con'] += loss_con.detach().item()
             el['cls'] += loss_cls.detach().item()
             el['stats'] += loss_stats.detach().item()
-            el['residual'] += loss_residual.detach().item()
+            el['centroid'] += loss_centroid.detach().item()
 
         n = len(cluster_cache)
         epoch_time = time.time() - epoch_start
@@ -234,17 +264,20 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
             'epoch': epoch,
             'loss_total': el['total'] / n, 'loss_edge': el['edge'] / n,
             'loss_con': el['con'] / n, 'loss_cls': el['cls'] / n,
-            'loss_stats': el['stats'] / n, 'loss_residual': el['residual'] / n,
+            'loss_stats': el['stats'] / n, 'loss_centroid': el['centroid'] / n,
             'epoch_time_s': round(epoch_time, 2),
         }
+
+        # Loss line every epoch; validation (expensive) every 5 epochs
+        base = (f'  Epoch {epoch}/{epochs} | Total: {el["total"]/n:.3f} '
+                f'Edge: {el["edge"]/n:.3f} Con: {el["con"]/n:.3f} '
+                f'Cls: {el["cls"]/n:.3f} Stats: {el["stats"]/n:.3f} '
+                f'Cent: {el["centroid"]/n:.3f}')
 
         if epoch % 5 == 0:
             val_f1 = _eval(model, cluster_cache, labels, vali_id, device)
             log_entry['val_f1'] = val_f1
-            print(f'  Epoch {epoch}/{epochs} | Total: {el["total"]/n:.3f} '
-                  f'Edge: {el["edge"]/n:.3f} Con: {el["con"]/n:.3f} '
-                  f'Cls: {el["cls"]/n:.3f} Stats: {el["stats"]/n:.3f} '
-                  f'Res: {el["residual"]/n:.3f} | Val F1: {val_f1:.4f} | {epoch_time:.1f}s')
+            print(f'{base} | Val F1: {val_f1:.4f} | {epoch_time:.1f}s')
             if val_f1 > best_val_f1:
                 best_val_f1 = val_f1
                 best_state = {k: v.clone() for k, v in model.state_dict().items()}
@@ -257,6 +290,8 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
                         with open(log_path, 'a') as f:
                             f.write(json.dumps(log_entry) + '\n')
                     break
+        else:
+            print(f'{base} | {epoch_time:.1f}s')
 
         if log_path:
             with open(log_path, 'a') as f:
@@ -274,16 +309,17 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
     return best_val_f1, test_f1
 
 
-def _eval(model, cluster_cache, labels, eval_id, device):
+def _eval(model, cluster_cache, labels, eval_id, device, cache_device='cpu'):
     from sklearn.metrics import f1_score
     model.eval()
     eval_id_set = set(eval_id.cpu().tolist())
     all_preds = {}
     with torch.no_grad():
-        for c in cluster_cache:
-            z = model.encoder(c['x'], c['edge_index'])
+        for c0 in cluster_cache:
+            x = c0['x'].to(device); ei = c0['edge_index'].to(device)
+            z = model.encoder(x, ei)
             preds = model.forward_classifier(z).argmax(dim=1)
-            for local_i, g in enumerate(c['global_indices'].tolist()):
+            for local_i, g in enumerate(c0['global_indices'].tolist()):
                 if g in eval_id_set:
                     all_preds[g] = preds[local_i].item()
     eval_list = [n for n in eval_id.cpu().tolist() if n in all_preds]

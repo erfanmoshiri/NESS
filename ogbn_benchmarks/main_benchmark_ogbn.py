@@ -63,10 +63,17 @@ def main():
     # KNN specific
     parser.add_argument('--K', type=int, default=3)
     parser.add_argument('--max_hops', type=int, default=3)
-    # NESS SSL loss weights
-    parser.add_argument('--w_con', type=float, default=10.0)
-    parser.add_argument('--w_stats', type=float, default=100.0)
-    parser.add_argument('--w_residual', type=float, default=50.0)
+    # NESS SSL loss weights (rebalanced: old 100/50 starved classification)
+    parser.add_argument('--w_con', type=float, default=1.0)
+    parser.add_argument('--w_stats', type=float, default=1.0)
+    parser.add_argument('--w_centroid', type=float, default=1.0)
+    # Clustering (NESS / MATE / PaGCN large-graph path)
+    parser.add_argument('--num_parts', type=int, default=50,
+                        help='METIS partitions for OGBN-scale clustering')
+    parser.add_argument('--cache_device', type=str, default='cpu', choices=['cpu', 'gpu'],
+                        help='Where to hold the cluster cache. cpu=frugal (1 cluster on '
+                             'GPU at a time, works in tight memory); gpu=fast (all clusters '
+                             'preloaded on GPU, needs full capacity).')
     args = parser.parse_args()
 
     set_random_seed(args.seed)
@@ -96,13 +103,18 @@ def main():
     test_id = masked_id[split_point:]
     print(f'  Observable: {len(observable_id):,} | Val: {len(vali_id):,} | Test: {len(test_id):,}')
 
-    features = features.to(device)
     labels = labels.to(device)
-    adj = adj.to(device)
     observable_id = observable_id.to(device)
     masked_id = masked_id.to(device)
     vali_id = vali_id.to(device)
     test_id = test_id.to(device)
+
+    # Non-parametric methods need adj+features on GPU for sparse imputation ops.
+    # Clustering methods (NESS/MATE/PaGCN) keep them on CPU (they cluster on CPU),
+    # which frees several GB on large graphs.
+    if args.model in ('NeighAggre', 'KNN'):
+        features = features.to(device)
+        adj = adj.to(device)
 
     run_dir = get_run_dir(args)
     log_path = os.path.join(run_dir, 'training_log.jsonl')
@@ -184,6 +196,7 @@ def main():
             weight_decay=args.weight_decay,
             epochs=args.epochs,
             patience=args.patience,
+            num_parts=args.num_parts,
             log_path=log_path,
             weights_path=weights_path,
         )
@@ -201,9 +214,11 @@ def main():
             weight_decay=args.weight_decay,
             epochs=args.epochs,
             patience=args.patience,
+            num_parts=args.num_parts,
+            cache_device=args.cache_device,
             w_con=args.w_con,
             w_stats=args.w_stats,
-            w_residual=args.w_residual,
+            w_centroid=args.w_centroid,
             log_path=log_path,
             weights_path=weights_path,
         )
@@ -220,6 +235,7 @@ def main():
             weight_decay=args.weight_decay,
             epochs=args.epochs,
             patience=args.patience,
+            num_parts=args.num_parts,
             log_path=log_path,
             weights_path=weights_path,
         )

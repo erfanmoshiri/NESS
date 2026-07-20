@@ -179,7 +179,7 @@ def train_MATE_ogbn(graph, features, labels, observable_id, masked_id,
         # ---- Large graph: ClusterLoader partitioning ----
         print(f'  Partitioning graph into {num_parts} clusters...')
         cluster_data = ClusterData(graph_cpu, num_parts=num_parts,
-                                   save_dir='../data/ogbn_products', log=False)
+                                   save_dir=None, log=False)
 
         print('  Pre-caching clusters...')
         cache_loader = ClusterLoader(cluster_data, batch_size=1, shuffle=False, num_workers=0)
