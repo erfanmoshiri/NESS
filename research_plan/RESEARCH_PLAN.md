@@ -1,6 +1,6 @@
 # Research Plan — Journal Extension
 
-**Working title:** Learning Under Missing Node Features via Neighborhood-Centric Self-Supervision
+**Working title:** Learning Under Missing Node Features: What Makes a Self-Supervised Objective Help? (FP-prefill + stochastic structure SSL)
 
 **Status:** Planning. Single-thesis journal extension of prior conference work on graph attribute imputation.
 
@@ -20,30 +20,38 @@ This extension **reframes the problem as learning under missingness**: given a g
 
 ## 2. Research Questions
 
-**RQ1 (headline — the method):**
-Does a GNN trained with neighborhood-centric self-supervised objectives (predicting properties of a node's neighborhood) learn node representations that are robust to missing node features, outperforming existing paradigms (imputation-based and per-node-parameter methods) on downstream classification?
+**RQ1 (the method):**
+Does a GNN combining Feature-Propagation prefill with a stochastic structure-based SSL objective learn representations robust to missing node features, outperforming imputation-based and per-node-parameter paradigms on downstream classification — especially under severe missingness?
 
 **RQ2 (robustness across conditions):**
-Does the advantage hold — and grow — as conditions get harder: across missingness rates (0.2→0.8) and, later, across missingness mechanisms (MCAR/MAR/MNAR)?
+Does the advantage hold — and grow — as missingness increases (0.2→0.8), and later across mechanisms (MCAR/MAR/MNAR)? (Early evidence: SSL adds most at 80% missing; simple neighbor-averaging dominates at low missingness.)
 
-**RQ3 (transferable finding — the strongest claim):**
-Is neighborhood-centric SSL a *general enhancement* rather than a one-off architecture? When bolted onto other GNN backbones (GraphSAGE, GAT, PaGCN), does it improve their robustness to missingness too?
+**RQ3 (the objective-design finding — the intellectual core):**
+*Which* self-supervised objectives help a GNN learn under missingness, and *why*? We show predictability-from-structure is necessary but not sufficient: an objective helps only if it is also (a) **not redundant** with what message-passing already computes, and (b) **stochastic / input-varying** so it keeps teaching instead of saturating. Feature-space and global-position objectives fail one or both tests; a stochastic multi-hop structure objective passes both.
 
-**Relationship:** RQ1 establishes the method wins. RQ2 shows the win is robust (not a single-rate artifact). RQ3 is the elevating finding — if neighborhood SSL improves *other* models too, the contribution is a transferable technique, not just "our model." A separate **analysis** answers *why* the effective objectives work (see §7, E-analysis) — this is a supporting section, not the headline.
+**RQ4 (view design — a second SSL-design axis):**
+The contrastive objective is itself an SSL task, and the two views feed all objectives through the shared `z`. Currently the two views differ only by random edge-masking (weak diversity). Part of the work is to test a small set of view constructions (e.g. edge-mask, feature-mask, PPR/diffusion view, prefilled-vs-raw) and characterize *which views are best and why* — mirroring the objective analysis (RQ3) but on the view axis.
+
+**RQ5 (transferable enhancement — bonus):**
+Is the effective SSL objective a *general* enhancement — does bolting it onto other GNN backbones (GraphSAGE, GAT, PaGCN) improve their robustness too?
+
+**Relationship:** RQ1 = the method wins. RQ2 = the win is robust and largest under severe missingness. **RQ3 is the paper's real novelty** — a principled account of what makes an SSL *objective* useful under missingness (systematic ablation over 5+ objectives). **RQ4 is the companion analysis on the *view* axis** — what makes a good contrastive view, since views feed all objectives. RQ5 elevates the finding to a transferable technique.
 
 ---
 
 ## 3. Central Claim
 
-> We introduce **NESS**, a GNN trained with neighborhood-centric self-supervised objectives (predicting a node's neighborhood centroid and spread from graph structure) that learns representations robust to missing node features. NESS outperforms imputation-based and per-node-parameter baselines on downstream node classification, and its advantage holds and grows as missingness increases. Moreover, neighborhood-centric SSL is a **transferable enhancement**: adding it to other GNN backbones improves their robustness to missingness as well.
+> We introduce **NESS**, a GNN for learning under missing node features that combines (i) **Feature-Propagation prefill** to give missing nodes long-range signal and (ii) a **stochastic, structure-based self-supervised objective** (multi-hop reachability / "path") that shapes representations to encode local graph structure. NESS outperforms imputation-based and per-node-parameter baselines on downstream node classification, with the advantage most pronounced under **severe missingness**. Beyond the method, we contribute an **empirical characterization of which self-supervised objectives help under missingness and why** — the key factor is not just predictability-from-structure but whether the objective is *stochastic and input-varying* (so it keeps teaching) and *non-redundant with message-passing aggregation*.
 
 **Pillars of the contribution:**
-1. **Method (RQ1)** — NESS: neighborhood-centric SSL for learning under missing features, evaluated end-to-end by downstream classification (not imputation quality). Beats imputation-based and per-node-parameter paradigms.
-2. **Robustness (RQ2)** — the advantage holds across missingness rates (and later mechanisms); the gap widens as features get scarcer.
-3. **Transferable finding (RQ3)** — neighborhood-centric SSL improves *other* GNN backbones too, establishing it as a general technique rather than a single architecture. *This is what lifts the paper above "yet another model."*
+1. **Method (RQ1)** — NESS: FP-prefill + stochastic structure-based SSL (path). Beats imputation-based and per-node-parameter paradigms, especially at high missingness.
+2. **Robustness (RQ2)** — the advantage holds across missingness rates; the gap is largest when features are scarcest (e.g. 80% missing).
+3. **The objective-design finding (the real intellectual contribution)** — a systematic study of *why* some neighborhood SSL objectives help and others are inert. Feature-space, deterministic objectives (centroid, spread, masked-feature recon) saturate quickly and add nothing; global-position objectives (PageRank) hurt; only **stochastic, input-varying, relational** objectives (multi-hop reachability) keep learning and improve downstream F1. See §7 analysis.
 4. **Scalability** — scales to large graphs (arxiv-scale now; products-scale as an optional bonus) where imputation baselines (SVGA/SAT) are infeasible.
 
-**Analysis (supporting, not headline):** a dedicated section explains *why* neighborhood objectives work — the effective targets (centroid, spread) are predictable from graph structure (high probe R², SSL loss decreases, positive downstream lift), whereas the residual/deviation target is structure-orthogonal (low R², loss frozen, no lift). This grounds the method's design; it is presented as an explanatory analysis, not the primary contribution.
+**Two components matter, and both are findings:**
+- **FP-prefill is essential.** Without it, at 80% missing NESS collapses (~0.16 F1) because a 2-hop GNN starves when neighborhoods are ~80% empty. FP-prefill alone lifts it to ~0.34. This is a core component, not a preprocessing detail.
+- **The SSL objective adds on top only if it is the right *kind*.** Feature/label objectives are redundant with prefill+classification; the stochastic structure objective (path) adds a further ~+2.9 F1 over no-SSL and, crucially, its loss keeps decreasing across all epochs (does not plateau).
 
 **Note on scope:** OGBN-products (2.4M) is currently deferred due to shared-GPU limits; **ogbn-arxiv (169k, dense embeddings) is the primary large dataset**. Products may be added later as a scale bonus — the contribution does not depend on it, since the effective regime is *dense-embedding* graphs (where neighborhood targets are predictable), not a specific node count.
 
@@ -92,8 +100,8 @@ Baselines are chosen to span **every category** of the missingness landscape, so
 | Work-around (no reconstruction) | **PaGCN** | ✅ | Imputation-free masked aggregation, GCN-cost. Represents the non-imputation camp. |
 | Per-node memorization | MATE | ✅ | Our conceptual foil (RQ2). |
 | GNN (zero-fill) | GraphSAGE, GAT | ✅ | Standard GNNs on zero-filled features. GAT small-scale only (too slow on OGBN, ~similar F1 to GraphSAGE). |
-| **Ours (NESS)** | Full model (SSL: stats + centroid) | ✅ | Neighborhood-centric SSL. |
-| **Ablations** | Ours − stats, − centroid, − both (no SSL); + residual variant | ✅ | RQ1/RQ2 support. |
+| **Ours (NESS)** | FP-prefill + stochastic structure SSL (path) | ✅ | The method. |
+| **Ablations** | no-SSL, FP-prefill on/off, and each objective (centroid/spread/recon/PageRank/path) | ✅ | RQ3 evidence. |
 
 **New baselines to implement:** FP (easy, ~15 lines) and PaGCN (easy, one modified GCN aggregation line). These two close the "you didn't test non-imputation methods" gap — FP covers scalable imputation, PaGCN covers the work-around camp.
 
@@ -117,9 +125,13 @@ Proves: NESS beats imputation-based and per-node-parameter baselines.
 Repeat E1 over multiple seeds (5 small / 3 arxiv); report mean ± std.
 Proves: the win is real, not seed noise. *Non-negotiable for a journal.*
 
-**E3 — Objective ablation. [RQ1, supports analysis]**
-On small datasets + ogbn-arxiv: full (stats+centroid) / −stats / −centroid / no-SSL / +residual.
-Proves: the SSL objectives cause the win; centroid+stats help, residual does not.
+**E3 — Objective ablation (the systematic study). [RQ3, core]**
+On ogbn-arxiv (+ small datasets), at high missingness (0.8, where SSL matters):
+compare no-SSL vs each objective — **centroid, spread, masked-recon, PageRank, path** —
+plus the FP-prefill on/off ablation.
+Proves: FP-prefill is essential; among SSL objectives only the stochastic structure
+one (path) helps; feature/global objectives are inert or harmful. This table IS the
+RQ3 evidence.
 
 ### Tier 2 — Robustness (the advantage is general — RQ2)
 
@@ -137,12 +149,22 @@ Proves: scales where prior paradigms cannot.
 
 ### Tier 3 — The elevating finding (RQ3) + analysis
 
-**E7 — Neighborhood-SSL as a transferable enhancement. [RQ3 — strongest claim]**
-Add the neighborhood-centric SSL objectives (stats+centroid) as an auxiliary loss to *other* GNN backbones — GraphSAGE, GAT, PaGCN — and measure Δ Macro-F1 (with-SSL vs without) under missingness.
-Proves: neighborhood SSL is a **general technique**, not a one-off architecture — it improves other models too. Report honestly even if uneven (e.g., helps message-passing GNNs more than imputation methods — that pattern is itself a finding).
+**E7 — View analysis. [RQ4 — companion to the objective study]**
+Systematically vary how the two contrastive views are built — edge-mask (current), feature-mask, PPR/diffusion view, prefilled-vs-raw — and measure downstream F1 + which view best supports the SSL objectives. Same style as E8 (objective analysis) but on the view axis: report *what works and why*. (Design note: current views differ only by random edge-mask → weak diversity; a PPR view gives local-vs-global contrast.)
 
-**E8 — "Why the effective objectives work" analysis. [supporting]**
-For each candidate target (centroid, stats, residual): probe **predictability-from-structure** (R²) + **training behavior** (does the SSL loss decrease?) + **downstream lift** (ΔF1 vs no-SSL). Through-line: structure-predictable targets (high R², loss drops, positive lift) help; residual (low R², frozen loss, ~zero lift) does not. Explains the method's design; presented as analysis, not the headline. The failed residual becomes evidence, not embarrassment.
+**E7b — SSL as a transferable enhancement. [RQ5 — bonus]**
+Add the effective SSL objective (path) as an auxiliary loss to *other* GNN backbones — GraphSAGE, GAT, PaGCN — and measure Δ Macro-F1 (with-SSL vs without) under missingness.
+Proves: it's a **general technique**, not a one-off architecture. Report honestly even if uneven (that pattern is itself a finding).
+
+**E8 — "Why objectives work/fail" analysis. [RQ3 — the paper's core insight]**
+For each objective (centroid, spread, masked-recon, PageRank, path) report three signals:
+**predictability-from-structure** (probe R²), **training behavior** (does the loss keep
+decreasing or plateau early?), and **downstream lift** (ΔF1 vs no-SSL). The pattern:
+- centroid/spread/recon: predictable but **redundant** with aggregation → loss plateaus by ~epoch 20 → ~0 lift
+- PageRank (global position): weakly predictable, not class-correlated → **hurts**
+- path (stochastic multi-hop reachability): loss **keeps decreasing** to the end → **+~2.9 F1**
+Through-line: an objective helps iff it is *not redundant with message-passing* AND
+*stochastic/input-varying* (so it stays hard). This is the paper's headline insight.
 
 **E9 — Regime analysis (dense vs sparse features). [supporting]**
 Same R²/lift across binary-BoW (small) vs dense-embedding (arxiv) datasets. Explains why SSL helps on embedding graphs but little on binary BoW.
@@ -154,15 +176,15 @@ t-SNE of masked-node embeddings (NESS vs no-SSL); F1 and per-objective loss curv
 
 ## 8. Execution Order (cheap validates before expensive)
 
-1. ✅ Small datasets run under the classification-under-missingness protocol (validated).
-2. ✅ Objective investigation: R² probes show centroid/stats predictable (~0.6 on dense embeddings), residual not (~0.1); model updated to stats+centroid.
-3. ✅ NESS vs PaGCN on arxiv (NESS 0.29 vs 0.25 at 400 ep) — promising, but budget was unequal.
-4. **Fair E1 core:** rerun all learnable baselines at the SAME budget on arxiv (fix the unequal-epoch issue). Then E3 ablation.
-5. **E2 multi-seed** on arxiv + small datasets — confirm the win survives variance.
-6. **E4 rate sensitivity** (0.2→0.8) — the robustness money-shot.
-7. **E7 transfer experiment** — neighborhood SSL bolted onto GraphSAGE/GAT/PaGCN. (The elevating finding.)
-8. E6 scalability table; E8/E9/E10 analysis sections.
-9. E5 missingness mechanisms (MAR/MNAR) — bonus if time allows.
+1. ✅ Small datasets validated under the classification-under-missingness protocol.
+2. ✅ Objective investigation (extensive): centroid/spread/recon inert; PageRank harmful; **path (stochastic multi-hop reachability) works** (+2.9 F1 at 80% missing, label-free, loss keeps decreasing). FP-prefill found essential.
+3. ✅ NESS(path)+FP-prefill = 0.366 at 80% missing vs no-SSL 0.338, PaGCN 0.267, KNN 0.299.
+4. **Fair E1 core** at rate 0.4: all learnable baselines, same budget, on arxiv.
+5. **E3 objective-ablation table** (the RQ3 evidence) — clean run of each objective at 0.8, + FP-prefill on/off.
+6. **E4 rate sensitivity** (0.2→0.8) — show the gap grows with missingness (already know: SSL helps at 0.8, less at 0.4).
+7. **E2 multi-seed** — confirm wins survive variance.
+8. **E4/RQ4 transfer** — path bolted onto GraphSAGE/GAT/PaGCN.
+9. E6 scalability; E9/E10 analysis; E5 mechanisms (bonus).
 
 ---
 
@@ -172,7 +194,8 @@ t-SNE of masked-node embeddings (NESS vs no-SSL); F1 and per-objective loss curv
 - **Pretrain / adapt strategies** — parked. Not part of this thesis; risks splitting the paper's focus. Mention as future work in the conclusion.
 - **MAR / MNAR mechanisms** — deferred; optional bonus if time allows.
 - **Imputation-quality metrics (Recall@K/NDCG)** — dropped; different task.
-- **Residual objective as a *live* method component** — dropped from the model (replaced by centroid). It survives only as a **studied negative result** in E7 (the "which objectives work and why" analysis).
+- **Feature/global SSL objectives as *live* method components** — centroid, spread, masked-feature recon, and PageRank were all tested and **dropped** (inert or harmful). They survive only as **studied negative results** in the E3/E8 objective analysis, which is the core RQ3 evidence. The live SSL objective is `path` (stochastic multi-hop reachability).
+- **`hist` (neighbor label-distribution)** — helps (~0.36) but is **semi-supervised** (uses labels) and **redundant** with `path`. Kept in the codebase as an option; reported as an analysis point (semi-supervised comparison), not part of the label-free method.
 
 ### Engineering / refactor TODOs (not experiments)
 - ✅ **DONE — Port our model into `ogbn_benchmarks/`** as `NESS_bench.py` (`--model NESS`). Runs through the unified runner with identical folder/log/save format and full-batch (<100k) + cluster paths. `src/main_ogbn_clustered.py` is now redundant for benchmarking (kept as reference; delete once ported version is validated against it).

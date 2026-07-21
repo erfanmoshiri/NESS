@@ -70,12 +70,13 @@ def main():
     parser.add_argument('--w_recon', type=float, default=1.0)  # masked-feature recon SSL
     parser.add_argument('--w_hist', type=float, default=1.0)   # neighbor label-histogram SSL
     parser.add_argument('--w_path', type=float, default=1.0)   # multi-hop link-pred SSL
+    parser.add_argument('--w_triplet', type=float, default=1.0)  # distance-ranking triplet SSL
     parser.add_argument('--walk_len', type=int, default=2,
                         help="Hops for the 'path' SSL objective. Short (2-3) keeps "
                              "reachability discriminative; large values make ~all pairs reachable.")
     parser.add_argument('--ssl_objective', type=str, nargs='*', default=['recon'],
                         help="Space-separated SSL objectives for NESS: any of "
-                             "recon, hist, path — e.g. --ssl_objective path recon. "
+                             "recon, hist, path, triplet — e.g. --ssl_objective triplet. "
                              "Pass nothing (--ssl_objective) for no SSL.")
     # Clustering (NESS / MATE / PaGCN large-graph path)
     parser.add_argument('--num_parts', type=int, default=50,
@@ -241,6 +242,7 @@ def main():
             w_recon=args.w_recon,
             w_hist=args.w_hist,
             w_path=args.w_path,
+            w_triplet=args.w_triplet,
             log_path=log_path,
             weights_path=weights_path,
         )

@@ -185,6 +185,7 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
                ssl_objective=('recon',), # list/tuple of objectives, e.g. ['recon','path']
                walk_len=2,               # hops for 'path' objective (short = tight, discriminative locality)
                w_edge=1.0, w_cls=1.0, w_con=1.0, w_recon=1.0, w_hist=1.0, w_path=1.0,
+               w_triplet=1.0,
                log_path=None, weights_path=None):
     """
     Args:
@@ -332,7 +333,7 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
         model.train()
         epoch_start = time.time()
         el = {'total': 0.0, 'edge': 0.0, 'con': 0.0, 'cls': 0.0,
-              'recon': 0.0, 'hist': 0.0, 'path': 0.0}
+              'recon': 0.0, 'hist': 0.0, 'path': 0.0, 'triplet': 0.0}
         random.shuffle(cluster_cache)
 
         for c0 in cluster_cache:
@@ -381,7 +382,7 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
             # --- SSL objectives (any subset active via ssl_set) ---
             loss_ssl = torch.tensor(0.0, device=device)
 
-            ssl_vals = {'recon': 0.0, 'hist': 0.0, 'path': 0.0}  # per-step raw values
+            ssl_vals = {'recon': 0.0, 'hist': 0.0, 'path': 0.0, 'triplet': 0.0}  # per-step raw
 
             if 'recon' in ssl_set:
                 # Masked-feature self-reconstruction: hide half the observable nodes,
@@ -416,12 +417,14 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
                 #   negative = (start, node beyond 3 hops) — guaranteed NOT reachable,
                 #              so no false negatives; re-sampled each step (stochastic).
                 nnodes = c['num_nodes']
-                # CSR + far-mask are fixed per cluster — build once, memoize on c0
+                # CSR + far-mask are fixed per cluster — build once, memoize on c0.
+                # far = >=3 hops (complement of within-2-hop), so the 3-hop ring counts
+                # as far and nothing is discarded between near (<=2) and far (>=3).
                 if 'csr' not in c0:
                     rp, cl = _build_csr(edge_index.cpu(), nnodes)
                     c0['csr'] = (rp, cl)
-                    within3 = _within_khop_mask(edge_index.cpu(), nnodes, k=3)
-                    c0['far_mask'] = (~within3)  # True where node is >3 hops away
+                    within2 = _within_khop_mask(edge_index.cpu(), nnodes, k=2)
+                    c0['far_mask'] = (~within2)  # True where node is >=3 hops away
                 rowptr, col = c0['csr']
                 rowptr, col = rowptr.to(device), col.to(device)
                 far_mask = c0['far_mask'].to(device)      # [N, N] bool
@@ -431,7 +434,7 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
                 walk = _random_walk(rowptr, col, starts, walk_len)
                 ends = walk[:, -1]                         # reachable ≤ walk_len hops (positive)
 
-                # Negatives: random node in each start's >3-hop far set. Resample a few
+                # Negatives: random node in each start's >=3-hop far set. Resample a few
                 # rounds (vectorized) to replace any candidate that isn't actually far.
                 cand = torch.randint(0, nnodes, (B,), device=device)
                 for _ in range(5):
@@ -451,6 +454,37 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
                 loss_ssl = loss_ssl + w_path * loss_path
                 ssl_vals['path'] = loss_path.detach().item()
 
+            if 'triplet' in ssl_set:
+                # Distance-ranking triplet: anchor A, near node (≤walk_len hops),
+                # far node (>=3 hops). Embedding of A must be CLOSER to near than far.
+                # Fresh triplets each step (stochastic, input-varying); label-free.
+                nnodes = c['num_nodes']
+                if 'csr' not in c0:
+                    rp, cl = _build_csr(edge_index.cpu(), nnodes)
+                    c0['csr'] = (rp, cl)
+                    within2 = _within_khop_mask(edge_index.cpu(), nnodes, k=2)
+                    c0['far_mask'] = (~within2)  # >=3 hops
+                rowptr, col = c0['csr']
+                rowptr, col = rowptr.to(device), col.to(device)
+                far_mask = c0['far_mask'].to(device)
+
+                B = min(nnodes, 4096)
+                anchor = torch.randint(0, nnodes, (B,), device=device)
+                near = _random_walk(rowptr, col, anchor, walk_len)[:, -1]  # ≤ walk_len hops
+                far = torch.randint(0, nnodes, (B,), device=device)
+                for _ in range(5):
+                    bad = ~far_mask[anchor, far]
+                    if not bad.any():
+                        break
+                    far[bad] = torch.randint(0, nnodes, (int(bad.sum()),), device=device)
+
+                # Distances in embedding space; near should be closer than far by a margin
+                d_near = (z[anchor] - z[near]).pow(2).sum(dim=1)
+                d_far = (z[anchor] - z[far]).pow(2).sum(dim=1)
+                loss_triplet = F.relu(d_near - d_far + 1.0).mean()   # margin = 1.0
+                loss_ssl = loss_ssl + w_triplet * loss_triplet
+                ssl_vals['triplet'] = loss_triplet.detach().item()
+
             loss_total = w_edge * loss_edge + w_cls * loss_cls + w_con * loss_con + loss_ssl
 
             optimizer.zero_grad()
@@ -464,6 +498,7 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
             el['recon'] += ssl_vals['recon']
             el['hist'] += ssl_vals['hist']
             el['path'] += ssl_vals['path']
+            el['triplet'] += ssl_vals['triplet']
 
         n = len(cluster_cache)
         epoch_time = time.time() - epoch_start
@@ -472,14 +507,14 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
             'loss_total': el['total'] / n, 'loss_edge': el['edge'] / n,
             'loss_con': el['con'] / n, 'loss_cls': el['cls'] / n,
             'loss_recon': el['recon'] / n, 'loss_hist': el['hist'] / n,
-            'loss_path': el['path'] / n,
+            'loss_path': el['path'] / n, 'loss_triplet': el['triplet'] / n,
             'epoch_time_s': round(epoch_time, 2),
         }
 
         # Loss line every epoch; validation (expensive) every 5 epochs. Only show
         # the SSL objectives that are active.
         ssl_str = ' '.join(f'{name.capitalize()}: {el[name]/n:.4f}'
-                           for name in ('recon', 'hist', 'path') if name in ssl_set)
+                           for name in ('recon', 'hist', 'path', 'triplet') if name in ssl_set)
         base = (f'  Epoch {epoch}/{epochs} | Total: {el["total"]/n:.3f} '
                 f'Edge: {el["edge"]/n:.3f} Con: {el["con"]/n:.3f} '
                 f'Cls: {el["cls"]/n:.3f}' + (f' {ssl_str}' if ssl_str else ''))
