@@ -64,9 +64,19 @@ def main():
     parser.add_argument('--K', type=int, default=3)
     parser.add_argument('--max_hops', type=int, default=3)
     # NESS SSL loss weights (rebalanced: old 100/50 starved classification)
-    parser.add_argument('--w_con', type=float, default=1.0)
-    parser.add_argument('--w_stats', type=float, default=1.0)
-    parser.add_argument('--w_centroid', type=float, default=1.0)
+    parser.add_argument('--w_edge', type=float, default=1.0)   # edge reconstruction
+    parser.add_argument('--w_cls', type=float, default=1.0)    # classification
+    parser.add_argument('--w_con', type=float, default=1.0)    # Barlow-Twins contrastive
+    parser.add_argument('--w_recon', type=float, default=1.0)  # masked-feature recon SSL
+    parser.add_argument('--w_hist', type=float, default=1.0)   # neighbor label-histogram SSL
+    parser.add_argument('--w_path', type=float, default=1.0)   # multi-hop link-pred SSL
+    parser.add_argument('--walk_len', type=int, default=2,
+                        help="Hops for the 'path' SSL objective. Short (2-3) keeps "
+                             "reachability discriminative; large values make ~all pairs reachable.")
+    parser.add_argument('--ssl_objective', type=str, nargs='*', default=['recon'],
+                        help="Space-separated SSL objectives for NESS: any of "
+                             "recon, hist, path — e.g. --ssl_objective path recon. "
+                             "Pass nothing (--ssl_objective) for no SSL.")
     # Clustering (NESS / MATE / PaGCN large-graph path)
     parser.add_argument('--num_parts', type=int, default=50,
                         help='METIS partitions for OGBN-scale clustering')
@@ -223,9 +233,14 @@ def main():
             cache_device=args.cache_device,
             prefill=args.prefill,
             ssl_hops=args.ssl_hops,
+            ssl_objective=args.ssl_objective,
+            walk_len=args.walk_len,
+            w_edge=args.w_edge,
+            w_cls=args.w_cls,
             w_con=args.w_con,
-            w_stats=args.w_stats,
-            w_centroid=args.w_centroid,
+            w_recon=args.w_recon,
+            w_hist=args.w_hist,
+            w_path=args.w_path,
             log_path=log_path,
             weights_path=weights_path,
         )

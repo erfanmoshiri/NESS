@@ -57,9 +57,84 @@ def _compute_ssl_targets(adj, features, masked_features, observable_id, device, 
     return target_stats.cpu(), target_centroid.cpu()
 
 
+def _compute_label_histogram(adj, labels, observable_id, num_classes, k=2):
+    """
+    Deterministic SSL target: for each node, the class distribution of its
+    OBSERVABLE neighbors within a k-hop ball (proximity-weighted).
+
+    Uses only observable-node labels (no val/test leakage). Returns [N, C]
+    probability distributions (rows sum to 1; nodes with no observable neighbor -> 0).
+    """
+    import torch as _t
+    device = 'cpu'
+    N = labels.size(0)
+    adj = adj.coalesce()
+    idx, val = adj.indices(), adj.values()
+    deg = _t.zeros(N).scatter_add_(0, idx[0], val).clamp(min=1)
+    A = _t.sparse_coo_tensor(idx, val / deg[idx[0]], (N, N)).coalesce()
+
+    # one-hot labels, zeroed for non-observable nodes
+    onehot = _t.zeros(N, num_classes)
+    onehot[observable_id, labels[observable_id]] = 1.0
+
+    acc = _t.zeros(N, num_classes)
+    cur = onehot
+    for _ in range(k):
+        cur = _t.sparse.mm(A, cur)
+        acc += cur
+
+    row = acc.sum(dim=1, keepdim=True)
+    hist = acc / row.clamp(min=1e-12)   # normalize to a distribution
+    hist[row.squeeze(1) < 1e-12] = 0.0  # no observable neighbor within k hops
+    return hist
+
+
+def _build_csr(edge_index, num_nodes):
+    """CSR (rowptr, col) for O(1) random-neighbor sampling. Built once per cluster."""
+    src = edge_index[0]
+    order = torch.argsort(src)
+    col = edge_index[1][order]
+    counts = torch.bincount(src, minlength=num_nodes)
+    rowptr = torch.zeros(num_nodes + 1, dtype=torch.long)
+    rowptr[1:] = torch.cumsum(counts, 0)
+    return rowptr, col
+
+
+def _random_walk(rowptr, col, start, walk_len):
+    """Vectorized random walk: [B] start nodes -> [B, walk_len+1] node sequences.
+    Isolated nodes stay put. Fresh each call (stochastic)."""
+    cur = start
+    seq = [cur]
+    ncol = col.size(0)
+    for _ in range(walk_len):
+        deg = (rowptr[cur + 1] - rowptr[cur])
+        rand = (torch.rand(cur.size(0), device=cur.device) * deg.clamp(min=1).float()).long()
+        nxt_idx = (rowptr[cur] + rand).clamp(max=ncol - 1)
+        nxt = col[nxt_idx]
+        cur = torch.where(deg > 0, nxt, cur)
+        seq.append(cur)
+    return torch.stack(seq, dim=1)
+
+
+def _within_khop_mask(edge_index, num_nodes, k=3):
+    """
+    Boolean [N, N] mask: True if j is reachable from i within k hops (incl. self).
+    Built once per cluster (cached). Complement = the 'far set' used for
+    guaranteed-true negatives in the path objective. Dense; fine for cluster sizes.
+    """
+    A = torch.zeros(num_nodes, num_nodes)
+    A[edge_index[0], edge_index[1]] = 1.0
+    reach = (A + torch.eye(num_nodes)) > 0
+    cum = reach.float()
+    for _ in range(k - 1):
+        cum = (cum @ A > 0).float()
+        reach = reach | (cum > 0)
+    return reach  # [N, N] bool: within-k-hop
+
+
 def _cluster_to(c, device):
     """Move a cached cluster's tensors to `device` for a single step."""
-    return {
+    out = {
         'x': c['x'].to(device), 'y': c['y'].to(device),
         'edge_index': c['edge_index'].to(device),
         'aug_edge_index': c['aug_edge_index'].to(device),
@@ -69,6 +144,9 @@ def _cluster_to(c, device):
         'obs_mask': c['obs_mask'].to(device),
         'num_nodes': c['num_nodes'],
     }
+    if 'target_hist' in c:
+        out['target_hist'] = c['target_hist'].to(device)
+    return out
 
 
 def _barlow_twins(z1, z2, lambda_param=0.005):
@@ -104,7 +182,9 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
                decoder_channels=64, dropout=0.5, lr=0.001, weight_decay=5e-5,
                epochs=200, patience=20, num_parts=50, p=0.7,
                cache_device='cpu', prefill='fp', fp_iterations=40, ssl_hops=2,
-               w_con=1.0, w_stats=1.0, w_centroid=1.0,
+               ssl_objective=('recon',), # list/tuple of objectives, e.g. ['recon','path']
+               walk_len=2,               # hops for 'path' objective (short = tight, discriminative locality)
+               w_edge=1.0, w_cls=1.0, w_con=1.0, w_recon=1.0, w_hist=1.0, w_path=1.0,
                log_path=None, weights_path=None):
     """
     Args:
@@ -114,12 +194,23 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
         observable_id, masked_id, vali_id, test_id: node splits
         num_classes: number of classes
         adj: sparse adjacency (needed for SSL target computation)
+        ssl_objective: comma-separated list of active SSL objectives. Supported:
+            'recon' (masked-feature reconstruction), 'hist' (neighbor label
+            histogram — semi-supervised), 'path' (stochastic multi-hop link
+            prediction), 'none'.
 
     Returns:
         val_f1, test_f1
     """
-    from sklearn.metrics import f1_score
     from data_loader import is_small
+
+    # Active SSL objectives as a set (accepts list/tuple; 'none' or empty -> no SSL)
+    if ssl_objective is None:
+        ssl_set = set()
+    elif isinstance(ssl_objective, str):
+        ssl_set = set() if ssl_objective in ('none', '') else {ssl_objective}
+    else:
+        ssl_set = {s for s in ssl_objective if s and s != 'none'}
 
     num_nodes = features.size(0)
     num_features = features.size(1)
@@ -151,10 +242,30 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
     obs_mask_full = torch.zeros(num_nodes, dtype=torch.bool)
     obs_mask_full[observable_id.cpu()] = True
 
+    # Neighbor label-histogram target (deterministic; observable labels only)
+    target_hist = None
+    if 'hist' in ssl_set:
+        print(f'  Computing neighbor label-histogram target ({ssl_hops}-hop, observable labels)...')
+        target_hist = _compute_label_histogram(
+            adj.cpu(), labels.cpu(), observable_id.cpu(), num_classes, k=ssl_hops)
+
     mask_edge = MaskEdge(p=p)
     model = _build_model(num_features, num_classes, encoder_channels, hidden,
                          decoder_channels, dropout, p, device)
-    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+    # Extra prediction heads per objective
+    hist_head = torch.nn.Linear(hidden, num_classes).to(device) if 'hist' in ssl_set else None
+    # Dedicated path-decoder (separate from edge_decoder, which learns 1-hop edges;
+    # sharing would conflict since a k-hop-reachable pair is a negative for edge loss).
+    path_head = (torch.nn.Sequential(
+        torch.nn.Linear(hidden, decoder_channels), torch.nn.ReLU(),
+        torch.nn.Linear(decoder_channels, 1)
+    ).to(device) if 'path' in ssl_set else None)
+    params = list(model.parameters())
+    if hist_head is not None:
+        params += list(hist_head.parameters())
+    if path_head is not None:
+        params += list(path_head.parameters())
+    optimizer = optim.Adam(params, lr=lr, weight_decay=weight_decay)
 
     # cache_dev: where cached cluster tensors live.
     #   'gpu' -> preload all clusters on GPU (fast; needs full capacity)
@@ -167,7 +278,7 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
         ei = graph.edge_index
         aug_ei, _ = add_self_loops(ei)
         gidx = torch.arange(num_nodes)
-        cluster_cache = [{
+        single = {
             'x': masked_features.to(cache_dev), 'y': labels.to(cache_dev),
             'edge_index': ei.to(cache_dev), 'aug_edge_index': aug_ei.to(cache_dev),
             'global_indices': gidx.to(cache_dev),
@@ -175,7 +286,10 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
             'target_centroid': target_centroid.to(cache_dev),
             'obs_mask': obs_mask_full.to(cache_dev),
             'num_nodes': num_nodes,
-        }]
+        }
+        if target_hist is not None:
+            single['target_hist'] = target_hist.to(cache_dev)
+        cluster_cache = [single]
     else:
         graph_cpu = graph.clone()
         graph_cpu.x = masked_features.cpu()
@@ -190,7 +304,7 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
         for i, batch in enumerate(cache_loader):
             gidx_cpu = node_perm[partptr[i]:partptr[i+1]]
             aug_ei, _ = add_self_loops(batch.edge_index)
-            cluster_cache.append({
+            entry = {
                 'x': batch.x.to(cache_dev), 'y': batch.y.to(cache_dev),
                 'edge_index': batch.edge_index.to(cache_dev),
                 'aug_edge_index': aug_ei.to(cache_dev),
@@ -199,7 +313,10 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
                 'target_centroid': target_centroid[gidx_cpu].to(cache_dev),
                 'obs_mask': obs_mask_full[gidx_cpu].to(cache_dev),
                 'num_nodes': batch.num_nodes,
-            })
+            }
+            if target_hist is not None:
+                entry['target_hist'] = target_hist[gidx_cpu].to(cache_dev)
+            cluster_cache.append(entry)
         print(f'  Cached {len(cluster_cache)} clusters')
 
     encoder = model.encoder
@@ -214,7 +331,8 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
     for epoch in range(1, epochs + 1):
         model.train()
         epoch_start = time.time()
-        el = {'total': 0.0, 'edge': 0.0, 'con': 0.0, 'cls': 0.0, 'stats': 0.0, 'centroid': 0.0}
+        el = {'total': 0.0, 'edge': 0.0, 'con': 0.0, 'cls': 0.0,
+              'recon': 0.0, 'hist': 0.0, 'path': 0.0}
         random.shuffle(cluster_cache)
 
         for c0 in cluster_cache:
@@ -260,12 +378,80 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
             logits = model.forward_classifier(z)
             loss_cls = F.cross_entropy(logits[obs], y[obs])
 
-            # SSL objectives (our contribution)
-            loss_stats = F.mse_loss(model.stats_predictor(z1), c['target_stats'])
-            loss_centroid = F.mse_loss(model.residual_predictor(z2), c['target_centroid'])
+            # --- SSL objectives (any subset active via ssl_set) ---
+            loss_ssl = torch.tensor(0.0, device=device)
 
-            loss_total = (loss_edge + w_con * loss_con + loss_cls
-                          + w_stats * loss_stats + w_centroid * loss_centroid)
+            ssl_vals = {'recon': 0.0, 'hist': 0.0, 'path': 0.0}  # per-step raw values
+
+            if 'recon' in ssl_set:
+                # Masked-feature self-reconstruction: hide half the observable nodes,
+                # reconstruct their TRUE features from neighbors.
+                obs_idx = obs.nonzero(as_tuple=True)[0]
+                if obs_idx.numel() > 1:
+                    perm = torch.randperm(obs_idx.numel(), device=device)
+                    held = obs_idx[perm[:obs_idx.numel() // 2]]
+                    x_recon = c['x'].clone()
+                    target_feat = x_recon[held].clone()
+                    x_recon[held] = 0.0
+                    z_recon = encoder(x_recon, rem1)
+                    pred_feat = model.projector(z_recon[held])
+                    loss_recon = F.mse_loss(pred_feat, target_feat)
+                    loss_ssl = loss_ssl + w_recon * loss_recon
+                    ssl_vals['recon'] = loss_recon.detach().item()
+
+            if 'hist' in ssl_set:
+                # Neighbor label-histogram (semi-supervised): predict class distribution
+                # of a node's observable k-hop neighbors. Observable nodes only.
+                pred_logp = F.log_softmax(hist_head(z[obs]), dim=1)
+                target = c['target_hist'][obs]
+                valid = target.sum(dim=1) > 0
+                if valid.any():
+                    loss_hist = F.kl_div(pred_logp[valid], target[valid], reduction='batchmean')
+                    loss_ssl = loss_ssl + w_hist * loss_hist
+                    ssl_vals['hist'] = loss_hist.detach().item()
+
+            if 'path' in ssl_set:
+                # Stochastic multi-hop link prediction:
+                #   positive = (start, endpoint) from a fresh walk_len-hop random walk
+                #   negative = (start, node beyond 3 hops) — guaranteed NOT reachable,
+                #              so no false negatives; re-sampled each step (stochastic).
+                nnodes = c['num_nodes']
+                # CSR + far-mask are fixed per cluster — build once, memoize on c0
+                if 'csr' not in c0:
+                    rp, cl = _build_csr(edge_index.cpu(), nnodes)
+                    c0['csr'] = (rp, cl)
+                    within3 = _within_khop_mask(edge_index.cpu(), nnodes, k=3)
+                    c0['far_mask'] = (~within3)  # True where node is >3 hops away
+                rowptr, col = c0['csr']
+                rowptr, col = rowptr.to(device), col.to(device)
+                far_mask = c0['far_mask'].to(device)      # [N, N] bool
+
+                B = min(nnodes, 4096)
+                starts = torch.randint(0, nnodes, (B,), device=device)
+                walk = _random_walk(rowptr, col, starts, walk_len)
+                ends = walk[:, -1]                         # reachable ≤ walk_len hops (positive)
+
+                # Negatives: random node in each start's >3-hop far set. Resample a few
+                # rounds (vectorized) to replace any candidate that isn't actually far.
+                cand = torch.randint(0, nnodes, (B,), device=device)
+                for _ in range(5):
+                    bad = ~far_mask[starts, cand]
+                    if not bad.any():
+                        break
+                    cand[bad] = torch.randint(0, nnodes, (int(bad.sum()),), device=device)
+                neg_ends = cand
+
+                # Dedicated path head (separate from edge decoder)
+                p_out = path_head(z[starts] * z[ends]).squeeze(-1)
+                n_out = path_head(z[starts] * z[neg_ends]).squeeze(-1)
+                loss_path = (
+                    F.binary_cross_entropy_with_logits(p_out, torch.ones_like(p_out)) +
+                    F.binary_cross_entropy_with_logits(n_out, torch.zeros_like(n_out))
+                ) / 2
+                loss_ssl = loss_ssl + w_path * loss_path
+                ssl_vals['path'] = loss_path.detach().item()
+
+            loss_total = w_edge * loss_edge + w_cls * loss_cls + w_con * loss_con + loss_ssl
 
             optimizer.zero_grad()
             loss_total.backward()
@@ -275,8 +461,9 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
             el['edge'] += loss_edge.detach().item()
             el['con'] += loss_con.detach().item()
             el['cls'] += loss_cls.detach().item()
-            el['stats'] += loss_stats.detach().item()
-            el['centroid'] += loss_centroid.detach().item()
+            el['recon'] += ssl_vals['recon']
+            el['hist'] += ssl_vals['hist']
+            el['path'] += ssl_vals['path']
 
         n = len(cluster_cache)
         epoch_time = time.time() - epoch_start
@@ -284,15 +471,18 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
             'epoch': epoch,
             'loss_total': el['total'] / n, 'loss_edge': el['edge'] / n,
             'loss_con': el['con'] / n, 'loss_cls': el['cls'] / n,
-            'loss_stats': el['stats'] / n, 'loss_centroid': el['centroid'] / n,
+            'loss_recon': el['recon'] / n, 'loss_hist': el['hist'] / n,
+            'loss_path': el['path'] / n,
             'epoch_time_s': round(epoch_time, 2),
         }
 
-        # Loss line every epoch; validation (expensive) every 5 epochs
+        # Loss line every epoch; validation (expensive) every 5 epochs. Only show
+        # the SSL objectives that are active.
+        ssl_str = ' '.join(f'{name.capitalize()}: {el[name]/n:.4f}'
+                           for name in ('recon', 'hist', 'path') if name in ssl_set)
         base = (f'  Epoch {epoch}/{epochs} | Total: {el["total"]/n:.3f} '
                 f'Edge: {el["edge"]/n:.3f} Con: {el["con"]/n:.3f} '
-                f'Cls: {el["cls"]/n:.3f} Stats: {el["stats"]/n:.3f} '
-                f'Cent: {el["centroid"]/n:.3f}')
+                f'Cls: {el["cls"]/n:.3f}' + (f' {ssl_str}' if ssl_str else ''))
 
         if epoch % 5 == 0:
             val_f1 = _eval(model, cluster_cache, labels, vali_id, device)
