@@ -29,6 +29,17 @@ from NESS_bench import train_NESS
 
 MODELS = ['NeighAggre', 'GraphSAGE', 'KNN', 'MATE', 'FP', 'PaGCN', 'NESS']
 
+# Per-dataset learning-rate defaults, applied UNIFORMLY to every learnable model
+# for a fair "equal budget" comparison. Large/dense-embedding graphs (arxiv) and the
+# larger co-purchase graph (amac) diverge at lr=0.01 (loss oscillates, val F1 collapses),
+# so they use 1e-3; small citation graphs tolerate 1e-2. An explicit --lr overrides this.
+DATASET_LR = {
+    'ogbn-arxiv': 0.001,
+    'ogbn-products': 0.001,
+    'amac': 0.001,
+}
+DEFAULT_LR = 0.01  # fallback for datasets not listed above (cora, citeseer, amap, ...)
+
 
 def get_run_dir(args):
     timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -51,10 +62,13 @@ def main():
     parser.add_argument('--data_root', type=str, default='../data/ogbn_products')
     parser.add_argument('--cuda', action='store_true', default=torch.cuda.is_available())
     parser.add_argument('--device', type=int, default=0)
-    # GNN args (GraphSAGE / FP / PaGCN)
-    parser.add_argument('--hidden', type=int, default=256)
+    # GNN args (GraphSAGE / FP / PaGCN). Default 128: fair common width for all
+    # models; NESS locked at SAGE+128 (E11). Pass --hidden 256 for headline numbers.
+    parser.add_argument('--hidden', type=int, default=128)
     parser.add_argument('--dropout', type=float, default=0.5)
-    parser.add_argument('--lr', type=float, default=0.01)
+    parser.add_argument('--lr', type=float, default=None,
+                        help='Learning rate. If unset, a per-dataset default is used '
+                             'uniformly for ALL models (see DATASET_LR).')
     parser.add_argument('--weight_decay', type=float, default=5e-4)
     parser.add_argument('--epochs', type=int, default=200)
     parser.add_argument('--patience', type=int, default=20,
@@ -89,6 +103,20 @@ def main():
                         choices=['edge_mask', 'dropout', 'feat_mask', 'ppr',
                                  'prefill_contrast', 'deep'],
                         help="How the SECOND contrastive view is built (view1 = edge-mask).")
+    parser.add_argument('--encoder_layer', type=str, default='sage',
+                        choices=['gcn', 'sage', 'gat'],
+                        help="NESS encoder conv type. sage keeps a self-transform "
+                             "(preserves per-node FP-prefilled signal); gcn blends self+neighbors.")
+    parser.add_argument('--num_layers', type=int, default=2,
+                        help="NESS encoder depth (message-passing layers). More layers = more "
+                             "smoothing/reach; 2 is the locked default.")
+    parser.add_argument('--single_view', action='store_true',
+                        help="Ablation: build ONE contrastive view (z1==z2). Removes the "
+                             "two-view structure and forces contrastive off. Tests whether "
+                             "the two-view/contrastive machinery helps at all.")
+    parser.add_argument('--ppr_on_prefilled', action='store_true',
+                        help="For --view2 ppr: diffuse the FP-prefilled features instead of "
+                             "the raw zero-filled ones (default: diffuse raw, avoids double-smoothing).")
     # Clustering (NESS / MATE / PaGCN large-graph path)
     parser.add_argument('--num_parts', type=int, default=50,
                         help='METIS partitions for OGBN-scale clustering')
@@ -103,11 +131,16 @@ def main():
                              'over a k-hop ball — needed at high missingness.')
     args = parser.parse_args()
 
+    # Resolve learning rate: explicit --lr wins; otherwise per-dataset default,
+    # applied identically to every model for a fair comparison.
+    if args.lr is None:
+        args.lr = DATASET_LR.get(args.dataset, DEFAULT_LR)
+
     set_random_seed(args.seed)
     device = torch.device(f'cuda:{args.device}' if args.cuda else 'cpu')
 
     print('=' * 70)
-    print(f'  {args.model} | {args.dataset} | {args.missingness} @ {args.miss_rate*100:.0f}%')
+    print(f'  {args.model} | {args.dataset} | {args.missingness} @ {args.miss_rate*100:.0f}% | lr={args.lr}')
     print('=' * 70)
 
     # Load data (unified loader handles all datasets)
@@ -238,9 +271,9 @@ def main():
             num_classes=num_classes,
             device=device,
             adj=adj,
-            hidden=args.hidden if args.hidden != 256 else 128,
+            hidden=args.hidden,
             dropout=args.dropout,
-            lr=args.lr if args.lr != 0.01 else 0.001,
+            lr=args.lr,
             weight_decay=args.weight_decay,
             epochs=args.epochs,
             patience=args.patience,
@@ -249,6 +282,10 @@ def main():
             prefill=args.prefill,
             ssl_hops=args.ssl_hops,
             view2=args.view2,
+            encoder_layer=args.encoder_layer,
+            num_layers=args.num_layers,
+            single_view=args.single_view,
+            ppr_on_raw=not args.ppr_on_prefilled,
             ssl_objective=args.ssl_objective,
             walk_len=args.walk_len,
             num_anchors=args.num_anchors,

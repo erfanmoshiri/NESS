@@ -17,7 +17,7 @@ MISS_RATE=${1:-0.6}
 DATASET=${2:-ogbn-arxiv}
 VIEW2=${3:-ppr}   # E7 showed ppr is the best second view; judge objectives under it
 MISSINGNESS=MCAR
-EPOCHS=400
+EPOCHS=800
 PATIENCE=20
 NUM_PARTS=20
 
@@ -52,11 +52,15 @@ for OBJ in "${SSL_OBJS[@]}"; do
     run "ssl_${OBJ}" --ssl_objective "$OBJ"
 done
 
-# 2) no SSL, contrastive still ON
+# 1b) the combined default set (hist + path together) — the locked objective set
+run "ssl_hist_path" --ssl_objective hist path
+
+# 2) no SSL, contrastive still ON (two views + BT loss, no auxiliary objective)
 run "no_ssl" --ssl_objective
 
-# 3) no contrastive at all (SSL off AND contrastive off)
-run "no_contrastive" --ssl_objective --w_con 0
+# 3) single view: one view only (no two-view structure; contrastive forced off).
+#    Tests whether the two-view/contrastive machinery helps at all.
+run "single_view" --ssl_objective --single_view
 
 # ---- Summary ----
 echo "" | tee -a "$SUMMARY"
@@ -64,7 +68,7 @@ echo "=================================================" | tee -a "$SUMMARY"
 echo "E3 RESULTS | NESS | $DATASET | $MISSINGNESS @ $MISS_RATE" | tee -a "$SUMMARY"
 echo "=================================================" | tee -a "$SUMMARY"
 printf "%-16s %-10s %-10s %-10s\n" "CONFIG" "VAL_F1" "TEST_F1" "TEST_ACC" | tee -a "$SUMMARY"
-for LABEL in "${SSL_OBJS[@]/#/ssl_}" "no_ssl" "no_contrastive"; do
+for LABEL in "${SSL_OBJS[@]/#/ssl_}" "ssl_hist_path" "no_ssl" "single_view"; do
     LOG="$LOGROOT/${LABEL}.log"
     VAL=$(grep -oE "Val  Macro-F1: [0-9.]+" "$LOG" 2>/dev/null | grep -oE "[0-9.]+" | tail -1)
     F1=$(grep -oE "Test Macro-F1: [0-9.]+" "$LOG" 2>/dev/null | grep -oE "[0-9.]+" | tail -1)

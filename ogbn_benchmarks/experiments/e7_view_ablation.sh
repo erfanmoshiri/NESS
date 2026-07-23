@@ -11,12 +11,13 @@
 
 cd "$(dirname "$0")/.."   # -> ogbn_benchmarks/
 
-MISS_RATE=${1:-0.6}
+MISS_RATE=${1:-0.8}
 DATASET=${2:-ogbn-arxiv}
 MISSINGNESS=MCAR
-EPOCHS=400
+EPOCHS=800
 PATIENCE=20
 NUM_PARTS=20
+# Encoder/width inherit the locked defaults (SAGE, 128). ppr diffuses raw features.
 
 STAMP=$(date +%Y%m%d_%H%M%S)
 LOGROOT="results/e7_viewablation_${STAMP}"

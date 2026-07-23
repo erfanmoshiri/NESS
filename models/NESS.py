@@ -11,7 +11,7 @@ generalize under missingness.
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
-from torch_geometric.nn import GCNConv
+from torch_geometric.nn import GCNConv, SAGEConv, GATConv
 from torch_geometric.utils import add_self_loops, negative_sampling
 from torch_sparse import SparseTensor
 from torch.utils.data import DataLoader
@@ -27,6 +27,12 @@ def edgeidx2sparse(edge_index, num_nodes):
 def creat_gnn_layer(name, first_channels, second_channels, heads):
     if name == "gcn":
         layer = GCNConv(first_channels, second_channels)
+    elif name == "sage":
+        # SAGEConv keeps a separate self-transform (W1·x_i + W2·mean(neigh)),
+        # unlike GCN which blends self and neighbors — preserves per-node signal.
+        layer = SAGEConv(first_channels, second_channels)
+    elif name == "gat":
+        layer = GATConv(first_channels, second_channels, heads=heads)
     else:
         raise ValueError(name)
     return layer
@@ -62,10 +68,14 @@ class GNNEncoder(nn.Module):
         bn = nn.BatchNorm1d if bn else nn.Identity
         self.use_node_feats = use_node_feats
 
+        def heads_at(idx):  # GAT concatenates heads; non-final GAT layers use 4 heads
+            return 1 if idx == num_layers - 1 or 'gat' not in layer else 4
+
         for i in range(num_layers):
-            first_channels = in_channels if i == 0 else hidden_channels
+            # input width must account for the previous GAT layer's head concatenation
+            first_channels = in_channels if i == 0 else hidden_channels * heads_at(i - 1)
             second_channels = out_channels if i == num_layers - 1 else hidden_channels
-            heads = 1 if i == num_layers - 1 or 'gat' not in layer else 4
+            heads = heads_at(i)
 
             self.convs.append(creat_gnn_layer(layer, first_channels, second_channels, heads))
             self.bns.append(bn(second_channels * heads))

@@ -165,42 +165,108 @@ Companion to E7 on the *loss* axis (E7 varied the view; this varies the loss wit
 Motivation: E3 @60% showed contrastive appearing *harmful*; E7 suggests weak views were the main cause, but the loss itself was never isolated. This run disambiguates loss-choice from view-quality.
 Proves (either way is a finding): if a different loss rescues contrastive under a good view → BT was the culprit; if contrastive stays neutral/harmful across losses → the contrastive term genuinely adds little in this regime.
 
-**E8 — "Why objectives work/fail" analysis. [RQ3 — the paper's core insight]**
-For each objective (centroid, spread, masked-recon, PageRank, path) report three signals:
-**predictability-from-structure** (probe R²), **training behavior** (does the loss keep
-decreasing or plateau early?), and **downstream lift** (ΔF1 vs no-SSL). The pattern:
-- centroid/spread/recon: predictable but **redundant** with aggregation → loss plateaus by ~epoch 20 → ~0 lift
-- PageRank (global position): weakly predictable, not class-correlated → **hurts**
-- path (stochastic multi-hop reachability): loss **keeps decreasing** to the end → **+~2.9 F1**
-Through-line: an objective helps iff it is *not redundant with message-passing* AND
-*stochastic/input-varying* (so it stays hard). This is the paper's headline insight.
+**E8 — Factor-flip study: what makes an SSL objective help. [RQ3 — the paper's core insight]**
 
-**E8b — Fixed-input vs varying-input, same quantity. [RQ3 — isolates the key factor]**
-Refined principle: what matters is not "stochastic *label*" but whether the SSL task's
-**INPUT varies each step**. A per-node objective ("predict quantity q from z_u") has a
-*fixed input* — resampling its label just gives contradictory supervision (same input,
-different target → averages to mush). Effective objectives (path, triplet) instead sample
-**fresh node-sets as input** and predict a **relation** among them, so the label is a
-function of the varying input → genuinely new, non-contradictory problems.
+*Method (causal, not correlational).* Correlating a property (e.g. probe R²) with ΔF1
+across our seven heterogeneous objectives is **confounded** — `path` differs from `centroid`
+on ~4 axes at once, so no single correlation can attribute the effect. Instead we test each
+candidate factor with a **minimal pair**: two objectives that predict the **same underlying
+quantity** and differ on **exactly one axis**. The factor's causal effect = ΔF1(flip-on) −
+ΔF1(flip-off), reported mean±std over ≥5 seeds (effects are ~0.01 F1, so single-seed is
+meaningless). A factor enters the rule only if flipping it reliably flips help↔no-help.
 
-Test with the SAME underlying quantity (anchor distance), two forms:
-- **fixed-input:** per-node regression — predict node u's distance-to-landmarks from z_u
-- **varying-input:** pairwise — sample (u, v, anchor) fresh each step, predict the
-  *signed difference* in their anchor-distances
-Proves the input-variation factor directly: the varying-input form sustains learning and
-helps; the fixed-input form is inert — the cleanest evidence for the RQ3 principle.
+*Candidate factors and their minimal pairs* (same quantity, flip one axis):
+- **F1 — input-varying vs fixed-input:** anchor-distance as pairwise signed-difference
+  (predict dist(u,L)−dist(v,L) from concat(z_u,z_v), input varies each step) vs per-node
+  regression (predict node u's distance-to-landmarks from z_u, fixed input). Held constant:
+  the quantity, landmarks, resample rate.
+- **F2 — stochastic vs static:** pairwise anchor with landmarks **resampled** every N epochs
+  vs **frozen** landmarks. Held constant: quantity, pairwise (both varying-input).
+- **F3 — label-driven vs label-free:** neighbor **label** histogram (`hist`) vs neighbor
+  **feature-cluster** histogram (same distributional target shape, no labels).
+- **F4 — redundant-with-aggregation vs not:** predict neighbor-mean (`centroid` — message
+  passing already computes it) vs multi-hop reachability (`path` — not computed). Both
+  structural, both fixed target. (Near-minimal; residual confound noted.)
 
-**Note on the refined principle:** the true dividing line across all tested objectives is
-*fixed-input (per-node)* vs *varying-input (relational, fresh node-sets)*:
-- fixed-input/per-node → centroid, stats, recon, pagerank → inert or harmful
-- varying-input/relational → path, triplet, anchor-diff → help
-- hist helps for a different reason (it is label-based/semi-supervised)
+*The 2×2 conjunction.* Using anchor-distance throughout, cross **input-variation ×
+redundancy** into four cells. Which cells help reveals whether the rule is an **AND-gate**
+("needs both") or additive — the data draws the boundary, not us.
+
+*Supporting signals (reported, not headline):* per objective, **probe R²**
+(predictability-from-structure — measured but demoted to a covariate, checked *within*
+matched pairs) and **loss-plateau epoch** (from the per-epoch loss already logged).
+
+*The claim.* The general rule = whatever factors survive the flips: "a good SSL objective
+under missingness is one that is [surviving factors]." **Honest fallback:** if no factor
+cleanly flips the outcome beyond seed noise at our scale, we report that and offer the
+qualitative account (input-varying, non-redundant, stochastic, label-aware) as a *hypothesis*
+we tested rather than a proven law. This is stronger than leading with a guessed rule.
+
+*Implementation status:* F1-varying (`anchor`), F3-label (`hist`), F4 (`centroid`,`path`)
+already exist. Need: F1-fixed (per-node anchor regression head), F2 (`--freeze_landmarks`
+toggle), F3-featurecluster (target builder). ~3 small additions unlock the whole study.
 
 **E9 — Regime analysis (dense vs sparse features). [supporting]**
 Same R²/lift across binary-BoW (small) vs dense-embedding (arxiv) datasets. Explains why SSL helps on embedding graphs but little on binary BoW.
 
-**E10 — Representation & convergence analysis.**
-t-SNE of masked-node embeddings (NESS vs no-SSL); F1 and per-objective loss curves over epochs. Visual/temporal support for the above.
+**E10 — Visual evidence for the E8 factors (convergence + representation).**
+Not a standalone result — the *legible visualization* of E8's rule, using data we already log.
+Two arguments, each tied to a specific E8 claim:
+
+- **Convergence curves (primary, the load-bearing plot).** Plot per-objective loss over epochs
+  for a *helping* objective (`path`) against an *inert* one (`centroid`) on the same axes. The
+  **contrast** is the point: `centroid` drops then **plateaus by ~epoch 20** (learned all it
+  could → redundant/saturated), while `path` **keeps decreasing to the end** (still finding
+  signal → non-redundant, stays hard). This is the *temporal* evidence for E8's
+  "redundancy / stays-hard" factor — a claim about training dynamics that no final-number table
+  can show. Data is already in `training_log.jsonl` (per-objective loss every epoch), so it is
+  essentially free. Also overlay val-F1-vs-epoch to show the helping objective's gains track its
+  sustained loss decrease.
+
+- **t-SNE of masked-node embeddings (deferred — do last, only if time).** NESS-with-SSL vs
+  no-SSL, colored by class; the argument is tighter/more-separated class clusters, making the
+  small ΔF1 tangible in *space*. Caveats that keep us honest: t-SNE is qualitative and
+  cherry-pickable, so it may only *illustrate* a quantitative result (E3/E8), never prove it;
+  and since our effects are ~0.01 F1 the visual difference may be subtle — if it is not clearly
+  visible, we drop the plot rather than force it.
+
+Through-line: the loss curve proves "helping objectives don't saturate" (mechanism over time);
+t-SNE illustrates "they reshape the representation toward class structure" (effect in space).
+Any plot that serves neither claim is cut.
+
+**E11 — Design & hyperparameter choices. [supporting — justify defaults, show non-brittleness]**
+One consolidated study (compact table / appendix, not main-text findings) that (a) justifies
+each *architectural design choice* by swapping one component at a time, and (b) shows the final
+model is *not brittle* to its *hyperparameters*. Both are one-factor-at-a-time sweeps around the
+locked defaults, on ogbn-arxiv at a representative rate (e.g. 0.6 or 0.8), everything else held
+at the E1/E2 config. Report Macro-F1 (mean±std where the gap is small). Distinct from E4 (sweeps
+missing *rate*), E7 (view = a contribution study), and E8 (objective = a contribution study).
+
+*Design-choice ablations (component swaps — "why did we build it this way?"):*
+- **Encoder type:** GCN vs SAGE vs GAT — *the key one*; SAGE's self-transform preserves the
+  FP-prefilled per-node signal that GCN washes out (the fix that restored the win). Already
+  gathering: GCN 0.354, SAGE 0.401, GAT (pending), all @0.8 cls-only.
+- **FP-prefill on/off** — core component check (also lives in the main story; report once).
+- **Contrastive on/off** (`--w_con 0`) — is the view-agreement term net-positive?
+- **SSL objectives on/off** — cls-only vs full (have: 0.401 vs 0.410 @0.8).
+- **ppr view on raw vs prefilled** (`ppr_on_raw`) — justifies diffusing raw features (avoids
+  double-smoothing). 
+- **Clustering granularity / full-batch** — num_parts {5, 20} vs full-batch (num_parts=1);
+  confirms clustering is not the bottleneck (fewer parts did *not* help).
+
+*Hyperparameter sensitivity (tuning knobs — "are the wins robust to reasonable settings?"):*
+- **Hidden width:** 128 vs 256 (have: 0.400 vs 0.410 @0.8 — margin over FP stable at both).
+- **Encoder depth:** 1 / 2 / 3 layers (depth vs over-smoothing).
+- **FP iterations:** 10 / 20 / 40 (how much prefill).
+- **SSL loss weights:** `w_con`, `w_path`, `w_hist` around 1.0 (e.g. 0.2–2.0).
+- **Path/anchor knobs:** `walk_len` (2–3), `num_anchors` (8–32), `anchor_resample` (N epochs).
+- **Learning rate:** confirm the per-dataset default (0.001 on arxiv) is a stable choice, not a
+  knife-edge (the lr-fairness fix motivates reporting this explicitly).
+
+*Framing:* these justify choices and show robustness — they are **not** contributions. Keep to a
+compact table; only promote a row to the main text if a reviewer would otherwise doubt a design
+choice (encoder type is the most likely to need surfacing). Which HP knobs to sweep in depth is
+finalized once the model is locked.
 
 ---
 

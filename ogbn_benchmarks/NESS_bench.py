@@ -181,7 +181,7 @@ def _ppr_diffuse(edge_index, x, num_nodes, alpha=0.15, iters=10):
 
 
 def make_views(view2, x, edge_index, num_nodes, encoder, mask_edge, device,
-               deep_encoder=None, x_raw=None, ppr_cache=None):
+               deep_encoder=None, x_raw=None, ppr_cache=None, single_view=False):
     """
     Build two encoded views (z1, z2) plus the view-1 masked edges used by edge/path loss.
 
@@ -194,9 +194,16 @@ def make_views(view2, x, edge_index, num_nodes, encoder, mask_edge, device,
       prefill_contrast  — view1 = prefilled x, view2 = raw (zero-filled) x_raw
       deep              — view2 uses a deeper encoder (imbalanced depth)
 
+    single_view=True  — ablation: build ONE view only (z1==z2). Removes the two-view
+    structure entirely (contrastive becomes trivial → caller must disable w_con).
+
     Returns (z1, z2, masked_edges).
     """
     rem1, masked_edges = mask_edge(edge_index)
+
+    if single_view:
+        z = encoder(x, rem1)
+        return z, z, masked_edges
 
     if view2 == 'edge_mask':
         rem2, _ = mask_edge(edge_index)
@@ -258,9 +265,9 @@ def _barlow_twins(z1, z2, lambda_param=0.005):
 
 
 def _build_model(num_features, num_classes, encoder_channels, hidden, decoder_channels,
-                 dropout, p, device):
+                 dropout, p, device, encoder_layer='gcn', num_layers=2):
     encoder = GNNEncoder(num_features, encoder_channels, hidden,
-                         num_layers=2, dropout=dropout, layer='gcn', activation='elu')
+                         num_layers=num_layers, dropout=dropout, layer=encoder_layer, activation='elu')
     edge_decoder = EdgeDecoder(hidden, decoder_channels, num_layers=2, dropout=0.3)
     projector = Projector(hidden, encoder_channels, out_channels=num_features,
                           num_layers=2, dropout=0.3)
@@ -280,6 +287,10 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
                epochs=200, patience=20, num_parts=50, p=0.7,
                cache_device='cpu', prefill='fp', fp_iterations=40, ssl_hops=2,
                view2='edge_mask',        # second-view construction (see make_views)
+               encoder_layer='gcn',      # encoder conv type: gcn / sage / gat
+               num_layers=2,             # encoder depth (message-passing layers)
+               single_view=False,        # ablation: one view only (forces w_con=0; no two-view structure)
+               ppr_on_raw=True,          # ppr view diffuses raw zero-filled feats (True) vs FP-prefilled (False)
                ssl_objective=('hist', 'path'), # list/tuple of objectives, e.g. ['recon','path']
                walk_len=2,               # hops for 'path' objective (short = tight, discriminative locality)
                num_anchors=16, anchor_resample=5,  # 'anchor' objective: K landmarks, resample every N epochs
@@ -311,6 +322,12 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
         ssl_set = set() if ssl_objective in ('none', '') else {ssl_objective}
     else:
         ssl_set = {s for s in ssl_objective if s and s != 'none'}
+
+    # Single-view ablation: z1==z2, so the contrastive (Barlow-Twins) term is trivial
+    # and meaningless — force it off regardless of the passed w_con.
+    if single_view and w_con != 0:
+        print('  single_view=True -> forcing w_con=0 (contrastive is trivial with one view)')
+        w_con = 0.0
 
     num_nodes = features.size(0)
     num_features = features.size(1)
@@ -355,10 +372,13 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
 
     mask_edge = MaskEdge(p=p)
     model = _build_model(num_features, num_classes, encoder_channels, hidden,
-                         decoder_channels, dropout, p, device)
+                         decoder_channels, dropout, p, device, encoder_layer=encoder_layer,
+                         num_layers=num_layers)
     # Deeper encoder for the 'deep' view2 (imbalanced-depth contrast); built only if needed.
+    # One layer deeper than the main encoder.
     deep_encoder = (GNNEncoder(num_features, encoder_channels, hidden,
-                               num_layers=3, dropout=dropout, layer='gcn', activation='elu')
+                               num_layers=num_layers + 1, dropout=dropout, layer=encoder_layer,
+                               activation='elu')
                     .to(device) if view2 == 'deep' else None)
     # Extra prediction heads per objective
     hist_head = torch.nn.Linear(hidden, num_classes).to(device) if 'hist' in ssl_set else None
@@ -391,8 +411,10 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
     cache_dev = device if cache_device == 'gpu' else torch.device('cpu')
 
     # ---- Build cluster cache (single full-graph cluster if small) ----
-    if is_small(num_nodes):
-        print('  Small graph: full-batch (single cluster)')
+    # num_parts=1 forces the full-batch path even for large graphs (METIS can't
+    # partition into 1 part). Useful for diagnosing clustering-induced edge loss.
+    if is_small(num_nodes) or num_parts == 1:
+        print('  Full-batch (single cluster, no partitioning)')
         ei = graph.edge_index
         aug_ei, _ = add_self_loops(ei)
         gidx = torch.arange(num_nodes)
@@ -403,7 +425,7 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
             'obs_mask': obs_mask_full.to(cache_dev),
             'num_nodes': num_nodes,
         }
-        if view2 == 'prefill_contrast':
+        if view2 == 'prefill_contrast' or (view2 == 'ppr' and ppr_on_raw):
             single['x_raw'] = raw_features.to(cache_dev)
         if target_stats is not None:
             single['target_stats'] = target_stats.to(cache_dev)
@@ -415,7 +437,7 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
         graph_cpu = graph.clone()
         graph_cpu.x = masked_features.cpu()
         graph_cpu.y = labels.cpu()
-        if view2 == 'prefill_contrast':
+        if view2 == 'prefill_contrast' or (view2 == 'ppr' and ppr_on_raw):
             graph_cpu.x_raw = raw_features.cpu()  # ClusterData permutes it alongside x
         print(f'  Partitioning graph into {num_parts} clusters (cache_device={cache_device})...')
         cluster_data = ClusterData(graph_cpu, num_parts=num_parts,
@@ -435,7 +457,7 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
                 'obs_mask': obs_mask_full[gidx_cpu].to(cache_dev),
                 'num_nodes': batch.num_nodes,
             }
-            if view2 == 'prefill_contrast':
+            if view2 == 'prefill_contrast' or (view2 == 'ppr' and ppr_on_raw):
                 entry['x_raw'] = batch.x_raw.to(cache_dev)
             if target_stats is not None:
                 entry['target_stats'] = target_stats[gidx_cpu].to(cache_dev)
@@ -471,14 +493,19 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
             ppr_cache = None
             if view2 == 'ppr':
                 if 'ppr' not in c0:
-                    c0['ppr'] = _ppr_diffuse(edge_index, c['x'], c['num_nodes']).to(
+                    # Diffuse RAW zero-filled features (ppr_on_raw) so the view is a genuine
+                    # alternative completion — not a re-diffusion of the FP-prefilled x
+                    # (which would double-smooth and make the two views near-redundant).
+                    ppr_src = c['x_raw'] if (ppr_on_raw and 'x_raw' in c) else c['x']
+                    c0['ppr'] = _ppr_diffuse(edge_index, ppr_src, c['num_nodes']).to(
                         torch.device('cpu') if cache_device == 'cpu' else device)
                 ppr_cache = c0['ppr'].to(device)
 
             # Build the two views (view1 = edge-masked; view2 per --view2)
             z1, z2, masked_edges = make_views(
                 view2, c['x'], edge_index, c['num_nodes'], encoder, mask_edge, device,
-                deep_encoder=deep_encoder, x_raw=c.get('x_raw'), ppr_cache=ppr_cache)
+                deep_encoder=deep_encoder, x_raw=c.get('x_raw'), ppr_cache=ppr_cache,
+                single_view=single_view)
             z = (z1 + z2) * 0.5
 
             num_neg = min(masked_edges.size(1), 50000)
@@ -542,7 +569,7 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
                     x_recon = c['x'].clone()
                     target_feat = x_recon[held].clone()
                     x_recon[held] = 0.0
-                    z_recon = encoder(x_recon, rem1)
+                    z_recon = encoder(x_recon, edge_index)
                     pred_feat = model.projector(z_recon[held])
                     loss_recon = F.mse_loss(pred_feat, target_feat)
                     loss_ssl = loss_ssl + w_recon * loss_recon
