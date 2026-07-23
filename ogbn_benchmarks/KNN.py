@@ -1,89 +1,86 @@
 """
-KNN baseline for OGBN-products.
+KNN baseline for graphs with node-level missing features.
 
-Replaces the original O(N²) all-pairs shortest path AND the per-node Python
-BFS loop with vectorized sparse matrix propagation:
+A fully-missing node has NO features, so "nearest neighbors" cannot mean
+feature-space similarity — it means **graph proximity**. For each missing node we
+BFS outward and collect the first K *observable* nodes (nearest by hop distance),
+then impute with the mean of those K nodes' features. Falls back to the global
+observable mean if fewer than 1 observable node is found within `max_hops`.
 
-  For each hop h=1..max_hops:
-    propagate observable features across edges using sparse matmul
-    accumulate weighted contributions (closer hops weighted more)
-
-  For each missing node: use the accumulated neighbor mean as imputation.
-  Falls back to global mean if no observable neighbors reached.
-
-This is O(max_hops × E) — fully vectorized, runs on GPU.
+This is a TRUE K-nearest-observable-neighbors imputation (distinct from Feature
+Propagation, which diffuses all observable features over the whole graph).
 """
 
 import torch
 import time
+from collections import deque
 
 
-def train_KNN(adj, features, observable_id, masked_id, device, K=3, max_hops=3):
+def train_KNN(adj, features, observable_id, masked_id, device, K=3, max_hops=10):
     """
     Args:
-        adj: Sparse adjacency [N, N] (on device)
-        features: [N, 100] ground-truth embeddings (on device)
+        adj: sparse adjacency [N, N]
+        features: [N, D] ground-truth features
         observable_id: visible node indices
         masked_id: missing node indices to impute
-        device: torch device
-        K: kept for API compatibility (multi-hop effectively uses all neighbors)
-        max_hops: number of propagation hops
+        K: number of nearest observable neighbors to average
+        max_hops: BFS depth cap (safety bound)
 
     Returns:
-        imputed_features: [N, 100]
+        imputed_features: [N, D]
     """
     start = time.time()
     num_nodes = features.size(0)
+    feats_cpu = features.cpu()
 
-    # Only observable nodes contribute features; missing nodes are zero
-    obs_features = torch.zeros_like(features)
-    obs_features[observable_id] = features[observable_id]
-
-    # obs_count[i] = number of observable nodes that have propagated to node i
-    obs_count = torch.zeros(num_nodes, 1, device=device)
-    obs_count[observable_id] = 1.0
-
-    # Normalize adjacency row-wise for stable propagation
-    adj = adj.coalesce()
-    row_deg = torch.sparse.sum(adj, dim=1).to_dense().clamp(min=1)
-    # Build row-normalized sparse adjacency
+    # Build adjacency list (CPU) for BFS
+    adj = adj.coalesce().cpu()
     src, dst = adj.indices()
-    vals = adj.values() / row_deg[src]
-    adj_norm = torch.sparse_coo_tensor(
-        torch.stack([src, dst]), vals, adj.shape, device=device
-    ).coalesce()
+    src, dst = src.numpy(), dst.numpy()
+    adj_list = [[] for _ in range(num_nodes)]
+    for s, d in zip(src, dst):
+        adj_list[s].append(d)
 
-    # Accumulate multi-hop neighbor features with hop decay weighting
-    accumulated_features = torch.zeros_like(features)
-    accumulated_count = torch.zeros(num_nodes, 1, device=device)
+    obs_mask = torch.zeros(num_nodes, dtype=torch.bool)
+    obs_mask[observable_id.cpu()] = True
+    obs_mask_np = obs_mask.numpy()
 
-    current_features = obs_features.clone()
-    current_count = obs_count.clone()
+    global_mean = feats_cpu[observable_id.cpu()].mean(dim=0)
+    imputed = feats_cpu.clone()
 
-    print(f'  Running {max_hops}-hop sparse propagation on {len(masked_id):,} missing nodes...')
+    masked_list = masked_id.cpu().tolist()
+    total = len(masked_list)
+    print(f'  True KNN (K={K}, max_hops={max_hops}) over {total:,} missing nodes...')
 
-    for hop in range(1, max_hops + 1):
-        weight = 1.0 / hop  # closer hops weighted more
-        # Propagate: each node gets weighted sum of normalized neighbor values
-        current_features = torch.sparse.mm(adj_norm, current_features)
-        current_count = torch.sparse.mm(adj_norm, current_count)
+    fallback = 0
+    for i, node in enumerate(masked_list):
+        # BFS outward, collect first K observable nodes by hop distance
+        visited = {node}
+        frontier = deque([(node, 0)])
+        found = []
+        while frontier and len(found) < K:
+            cur, hop = frontier.popleft()
+            if hop >= max_hops:
+                continue
+            for nbr in adj_list[cur]:
+                if nbr in visited:
+                    continue
+                visited.add(nbr)
+                if obs_mask_np[nbr]:
+                    found.append(nbr)
+                    if len(found) >= K:
+                        break
+                frontier.append((nbr, hop + 1))
 
-        accumulated_features += weight * current_features
-        accumulated_count += weight * current_count
+        if found:
+            imputed[node] = feats_cpu[found].mean(dim=0)
+        else:
+            imputed[node] = global_mean
+            fallback += 1
 
-    # Normalize accumulated features by total weight received
-    safe_count = accumulated_count.clamp(min=1e-9)
-    neighbor_mean = accumulated_features / safe_count
-
-    # Global mean fallback for nodes that received no signal
-    global_mean = features[observable_id].mean(dim=0)
-    no_signal = (accumulated_count.squeeze(1) < 1e-9)
-
-    imputed = features.clone()
-    imputed[masked_id] = neighbor_mean[masked_id]
-    imputed[masked_id[no_signal[masked_id]]] = global_mean
+        if (i + 1) % 50000 == 0:
+            print(f'    {i+1:,}/{total:,} ({time.time()-start:.0f}s)')
 
     elapsed = time.time() - start
-    no_signal_count = no_signal[masked_id].sum().item()
-    print(f'  KNN done in {elapsed:.1f}s | {no_signal_count:,} nodes used global mean fallback')
-    return imputed
+    print(f'  KNN done in {elapsed:.1f}s | {fallback:,} nodes used global-mean fallback')
+    return imputed.to(device)

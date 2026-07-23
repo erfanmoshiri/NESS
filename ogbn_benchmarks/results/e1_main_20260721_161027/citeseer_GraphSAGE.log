@@ -1,0 +1,53 @@
+/home/erfan/MATE/ogbn_benchmarks/../src/utils.py:183: UserWarning: torch.sparse.SparseTensor(indices, values, shape, *, device=) is deprecated.  Please use torch.sparse_coo_tensor(indices, values, shape, dtype=, device=). (Triggered internally at /pytorch/torch/csrc/utils/tensor_new.cpp:654.)
+  adj_norm = torch.sparse.FloatTensor(indices_norm, values_norm, torch.Size(adj_norm.shape))
+======================================================================
+  GraphSAGE | citeseer | MCAR @ 40%
+======================================================================
+[1/3] Loading citeseer...
+loading dataset: citeseer
+  3,327 nodes | 3703 dims | 6 classes
+[2/3] Simulating MCAR missingness...
+Simulating MCAR missingness at 40% rate...
+  MCAR: Uniform random selection
+  Observable: 1,997 (60.0%)
+  Masked: 1,330 (40.0%)
+  Observable: 1,997 | Val: 665 | Test: 665
+[3/3] Running GraphSAGE...
+  Training GraphSAGE (full-batch) for up to 400 epochs (patience=20)...
+  Epoch 5/400 | Loss: 0.7178 | Val F1: 0.5669 | 0.00s
+  Epoch 10/400 | Loss: 0.3635 | Val F1: 0.5993 | 0.00s
+  Epoch 15/400 | Loss: 0.2370 | Val F1: 0.6089 | 0.00s
+  Epoch 20/400 | Loss: 0.1918 | Val F1: 0.5842 | 0.00s
+  Epoch 25/400 | Loss: 0.1565 | Val F1: 0.6170 | 0.00s
+  Epoch 30/400 | Loss: 0.1388 | Val F1: 0.6062 | 0.00s
+  Epoch 35/400 | Loss: 0.1430 | Val F1: 0.6138 | 0.00s
+  Epoch 40/400 | Loss: 0.1489 | Val F1: 0.6039 | 0.00s
+  Epoch 45/400 | Loss: 0.1356 | Val F1: 0.6046 | 0.00s
+  Epoch 50/400 | Loss: 0.1223 | Val F1: 0.5957 | 0.00s
+  Epoch 55/400 | Loss: 0.1260 | Val F1: 0.5967 | 0.00s
+  Epoch 60/400 | Loss: 0.1234 | Val F1: 0.6038 | 0.00s
+  Epoch 65/400 | Loss: 0.1051 | Val F1: 0.6019 | 0.00s
+  Epoch 70/400 | Loss: 0.1185 | Val F1: 0.5978 | 0.00s
+  Epoch 75/400 | Loss: 0.1131 | Val F1: 0.6034 | 0.00s
+  Epoch 80/400 | Loss: 0.0961 | Val F1: 0.6069 | 0.00s
+  Epoch 85/400 | Loss: 0.0990 | Val F1: 0.5848 | 0.00s
+  Epoch 90/400 | Loss: 0.0953 | Val F1: 0.5847 | 0.00s
+  Epoch 95/400 | Loss: 0.0965 | Val F1: 0.5811 | 0.00s
+  Epoch 100/400 | Loss: 0.0945 | Val F1: 0.6055 | 0.00s
+  Epoch 105/400 | Loss: 0.0873 | Val F1: 0.5945 | 0.00s
+  Epoch 110/400 | Loss: 0.0961 | Val F1: 0.5970 | 0.00s
+  Epoch 115/400 | Loss: 0.1028 | Val F1: 0.5963 | 0.00s
+  Epoch 120/400 | Loss: 0.1000 | Val F1: 0.5898 | 0.00s
+  Epoch 125/400 | Loss: 0.0864 | Val F1: 0.6011 | 0.00s
+  Early stopping at epoch 125
+  Best Val F1: 0.6170 | Test F1: 0.6319 | Test Acc: 0.6617
+  Total training time: 0.6s
+
+======================================================================
+  Val  Macro-F1: 0.6170
+  Test Macro-F1: 0.6319
+  Test Accuracy: 0.6617
+  Time: 0.7s
+======================================================================
+
+  Results saved to: results/GraphSAGE_citeseer_MCAR_0.4_20260721_161100

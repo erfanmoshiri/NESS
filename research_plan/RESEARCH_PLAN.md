@@ -126,12 +126,16 @@ Repeat E1 over multiple seeds (5 small / 3 arxiv); report mean ± std.
 Proves: the win is real, not seed noise. *Non-negotiable for a journal.*
 
 **E3 — Objective ablation (the systematic study). [RQ3, core]**
-On ogbn-arxiv (+ small datasets), at high missingness (0.8, where SSL matters):
-compare no-SSL vs each objective — **centroid, spread, masked-recon, PageRank, path** —
-plus the FP-prefill on/off ablation.
-Proves: FP-prefill is essential; among SSL objectives only the stochastic structure
-one (path) helps; feature/global objectives are inert or harmful. This table IS the
-RQ3 evidence.
+On ogbn-arxiv (+ small datasets), at high missingness (0.8) and a mid rate (0.4):
+with/without each objective, one representative per category (spanning the axes):
+- **recon** (feature/generative), **contrastive/Barlow** (view-agreement),
+  **centroid** (feature-neighborhood, static), **path** (structural-local, stochastic),
+  **triplet** (structural-local, ranking), **anchor-distance** (structural-global, stochastic),
+  **hist** (label-based, semi-supervised).
+- Plus **FP-prefill on/off** and (as reported negatives) PageRank/degree.
+Just with/without (contribution Δ), not sensitivity. The category spread lets us claim
+*which category helps and why* — feature/global-static inert or harmful; structural
+(local & global) helps when stochastic; view-agreement/label as references. This is RQ3 evidence.
 
 ### Tier 2 — Robustness (the advantage is general — RQ2)
 
@@ -156,6 +160,11 @@ Systematically vary how the two contrastive views are built — edge-mask (curre
 Add the effective SSL objective (path) as an auxiliary loss to *other* GNN backbones — GraphSAGE, GAT, PaGCN — and measure Δ Macro-F1 (with-SSL vs without) under missingness.
 Proves: it's a **general technique**, not a one-off architecture. Report honestly even if uneven (that pattern is itself a finding).
 
+**E7c — Contrastive loss-function ablation. [RQ4 — side experiment, loss axis]**
+Companion to E7 on the *loss* axis (E7 varied the view; this varies the loss with a fixed good view). Current contrastive term is **Barlow Twins** (decorrelation, no negatives) — which, under near-identical views, collapses to a mostly off-diagonal regularizer that can fight classification. Swap BT for alternatives — **InfoNCE/GRACE** (negatives), **BYOL/AFGRL** (bootstrap, no negatives) — under the best view from E7 (ppr) and measure Δ Macro-F1.
+Motivation: E3 @60% showed contrastive appearing *harmful*; E7 suggests weak views were the main cause, but the loss itself was never isolated. This run disambiguates loss-choice from view-quality.
+Proves (either way is a finding): if a different loss rescues contrastive under a good view → BT was the culprit; if contrastive stays neutral/harmful across losses → the contrastive term genuinely adds little in this regime.
+
 **E8 — "Why objectives work/fail" analysis. [RQ3 — the paper's core insight]**
 For each objective (centroid, spread, masked-recon, PageRank, path) report three signals:
 **predictability-from-structure** (probe R²), **training behavior** (does the loss keep
@@ -165,6 +174,27 @@ decreasing or plateau early?), and **downstream lift** (ΔF1 vs no-SSL). The pat
 - path (stochastic multi-hop reachability): loss **keeps decreasing** to the end → **+~2.9 F1**
 Through-line: an objective helps iff it is *not redundant with message-passing* AND
 *stochastic/input-varying* (so it stays hard). This is the paper's headline insight.
+
+**E8b — Fixed-input vs varying-input, same quantity. [RQ3 — isolates the key factor]**
+Refined principle: what matters is not "stochastic *label*" but whether the SSL task's
+**INPUT varies each step**. A per-node objective ("predict quantity q from z_u") has a
+*fixed input* — resampling its label just gives contradictory supervision (same input,
+different target → averages to mush). Effective objectives (path, triplet) instead sample
+**fresh node-sets as input** and predict a **relation** among them, so the label is a
+function of the varying input → genuinely new, non-contradictory problems.
+
+Test with the SAME underlying quantity (anchor distance), two forms:
+- **fixed-input:** per-node regression — predict node u's distance-to-landmarks from z_u
+- **varying-input:** pairwise — sample (u, v, anchor) fresh each step, predict the
+  *signed difference* in their anchor-distances
+Proves the input-variation factor directly: the varying-input form sustains learning and
+helps; the fixed-input form is inert — the cleanest evidence for the RQ3 principle.
+
+**Note on the refined principle:** the true dividing line across all tested objectives is
+*fixed-input (per-node)* vs *varying-input (relational, fresh node-sets)*:
+- fixed-input/per-node → centroid, stats, recon, pagerank → inert or harmful
+- varying-input/relational → path, triplet, anchor-diff → help
+- hist helps for a different reason (it is label-based/semi-supervised)
 
 **E9 — Regime analysis (dense vs sparse features). [supporting]**
 Same R²/lift across binary-BoW (small) vs dense-embedding (arxiv) datasets. Explains why SSL helps on embedding graphs but little on binary BoW.

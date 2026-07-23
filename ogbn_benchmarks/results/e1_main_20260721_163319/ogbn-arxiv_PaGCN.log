@@ -1,0 +1,85 @@
+/home/erfan/MATE/venv/lib/python3.13/site-packages/outdated/__init__.py:36: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  from pkg_resources import parse_version
+/home/erfan/MATE/ogbn_benchmarks/data_loader.py:96: UserWarning: Sparse invariant checks are implicitly disabled. Memory errors (e.g. SEGFAULT) will occur when operating on a sparse tensor which violates the invariants, but checks incur performance overhead. To silence this warning, explicitly opt in or out. See `torch.sparse.check_sparse_tensor_invariants.__doc__` for guidance.  (Triggered internally at /pytorch/aten/src/ATen/Context.cpp:760.)
+  adj = torch.sparse_coo_tensor(edge_index, vals, (num_nodes, num_nodes)).coalesce()
+======================================================================
+  PaGCN | ogbn-arxiv | MCAR @ 40%
+======================================================================
+[1/3] Loading ogbn-arxiv...
+  169,343 nodes | 128 dims | 40 classes
+[2/3] Simulating MCAR missingness...
+Simulating MCAR missingness at 40% rate...
+  MCAR: Uniform random selection
+  Observable: 101,606 (60.0%)
+  Masked: 67,737 (40.0%)
+  Observable: 101,606 | Val: 33,868 | Test: 33,869
+[3/3] Running PaGCN...
+  Partitioning graph into 20 clusters...
+  Pre-caching clusters (with normalized adjacency)...
+  Cached 20 clusters
+  Training PaGCN for up to 400 epochs (patience=20)...
+  Epoch 5/400 | Loss: 2.8100 | Val F1: 0.0243 | 0.0s
+  Epoch 10/400 | Loss: 2.4555 | Val F1: 0.0341 | 0.0s
+  Epoch 15/400 | Loss: 2.3111 | Val F1: 0.0650 | 0.0s
+  Epoch 20/400 | Loss: 2.2032 | Val F1: 0.1012 | 0.0s
+  Epoch 25/400 | Loss: 2.1427 | Val F1: 0.0930 | 0.0s
+  Epoch 30/400 | Loss: 1.9781 | Val F1: 0.1133 | 0.0s
+  Epoch 35/400 | Loss: 1.9553 | Val F1: 0.1326 | 0.0s
+  Epoch 40/400 | Loss: 1.9231 | Val F1: 0.1429 | 0.0s
+  Epoch 45/400 | Loss: 1.9168 | Val F1: 0.1546 | 0.0s
+  Epoch 50/400 | Loss: 1.8755 | Val F1: 0.1672 | 0.0s
+  Epoch 55/400 | Loss: 1.9010 | Val F1: 0.1743 | 0.0s
+  Epoch 60/400 | Loss: 1.8271 | Val F1: 0.1970 | 0.0s
+  Epoch 65/400 | Loss: 1.8405 | Val F1: 0.1867 | 0.0s
+  Epoch 70/400 | Loss: 1.7813 | Val F1: 0.1943 | 0.0s
+  Epoch 75/400 | Loss: 1.8205 | Val F1: 0.1807 | 0.0s
+  Epoch 80/400 | Loss: 1.7756 | Val F1: 0.1931 | 0.0s
+  Epoch 85/400 | Loss: 1.7898 | Val F1: 0.2060 | 0.0s
+  Epoch 90/400 | Loss: 1.7677 | Val F1: 0.2060 | 0.0s
+  Epoch 95/400 | Loss: 1.8242 | Val F1: 0.1927 | 0.0s
+  Epoch 100/400 | Loss: 1.7540 | Val F1: 0.2147 | 0.0s
+  Epoch 105/400 | Loss: 1.7892 | Val F1: 0.2172 | 0.0s
+  Epoch 110/400 | Loss: 1.7459 | Val F1: 0.2160 | 0.0s
+  Epoch 115/400 | Loss: 1.7165 | Val F1: 0.2100 | 0.0s
+  Epoch 120/400 | Loss: 1.7653 | Val F1: 0.2130 | 0.0s
+  Epoch 125/400 | Loss: 1.7183 | Val F1: 0.2214 | 0.0s
+  Epoch 130/400 | Loss: 1.7435 | Val F1: 0.2106 | 0.0s
+  Epoch 135/400 | Loss: 1.7430 | Val F1: 0.2180 | 0.0s
+  Epoch 140/400 | Loss: 1.7357 | Val F1: 0.2060 | 0.0s
+  Epoch 145/400 | Loss: 1.7169 | Val F1: 0.2193 | 0.0s
+  Epoch 150/400 | Loss: 1.7025 | Val F1: 0.2257 | 0.0s
+  Epoch 155/400 | Loss: 1.6755 | Val F1: 0.2197 | 0.0s
+  Epoch 160/400 | Loss: 1.7734 | Val F1: 0.2268 | 0.0s
+  Epoch 165/400 | Loss: 1.7010 | Val F1: 0.2428 | 0.0s
+  Epoch 170/400 | Loss: 1.6865 | Val F1: 0.2377 | 0.0s
+  Epoch 175/400 | Loss: 1.6887 | Val F1: 0.2226 | 0.0s
+  Epoch 180/400 | Loss: 1.7619 | Val F1: 0.2184 | 0.0s
+  Epoch 185/400 | Loss: 1.7053 | Val F1: 0.2323 | 0.0s
+  Epoch 190/400 | Loss: 1.6888 | Val F1: 0.2409 | 0.0s
+  Epoch 195/400 | Loss: 1.6808 | Val F1: 0.2207 | 0.0s
+  Epoch 200/400 | Loss: 1.7084 | Val F1: 0.2288 | 0.0s
+  Epoch 205/400 | Loss: 1.6799 | Val F1: 0.2366 | 0.0s
+  Epoch 210/400 | Loss: 1.6559 | Val F1: 0.2331 | 0.0s
+  Epoch 215/400 | Loss: 1.6464 | Val F1: 0.2312 | 0.0s
+  Epoch 220/400 | Loss: 1.6678 | Val F1: 0.2325 | 0.0s
+  Epoch 225/400 | Loss: 1.6755 | Val F1: 0.2284 | 0.0s
+  Epoch 230/400 | Loss: 1.7150 | Val F1: 0.2392 | 0.0s
+  Epoch 235/400 | Loss: 1.7067 | Val F1: 0.2337 | 0.0s
+  Epoch 240/400 | Loss: 1.7215 | Val F1: 0.2224 | 0.0s
+  Epoch 245/400 | Loss: 1.6647 | Val F1: 0.2424 | 0.0s
+  Epoch 250/400 | Loss: 1.6918 | Val F1: 0.2231 | 0.0s
+  Epoch 255/400 | Loss: 1.6710 | Val F1: 0.2302 | 0.0s
+  Epoch 260/400 | Loss: 1.6474 | Val F1: 0.2374 | 0.0s
+  Epoch 265/400 | Loss: 1.6952 | Val F1: 0.2178 | 0.0s
+  Early stopping at epoch 265
+  Best Val F1: 0.2428 | Test F1: 0.2444
+  Total training time: 24.3s (0.4 min)
+
+======================================================================
+  Val  Macro-F1: 0.2428
+  Test Macro-F1: 0.2444
+  Test Accuracy: 0.5530
+  Time: 25.4s
+======================================================================
+
+  Results saved to: results/PaGCN_ogbn-arxiv_MCAR_0.4_20260721_165134

@@ -121,7 +121,7 @@ def train_GraphSAGE(graph, features, labels, observable_id, masked_id, vali_id, 
         log_entry = {'epoch': epoch, 'loss': avg_loss, 'epoch_time_s': round(epoch_time, 2)}
 
         if epoch % 5 == 0:
-            val_f1 = _eval(model, graph, masked_features, labels, vali_id, device)
+            val_f1, _ = _eval(model, graph, masked_features, labels, vali_id, device)
             log_entry['val_f1'] = val_f1
             print(f'  Epoch {epoch}/{epochs} | Loss: {avg_loss:.4f} | Val F1: {val_f1:.4f}')
             if val_f1 > best_val_f1:
@@ -147,9 +147,9 @@ def train_GraphSAGE(graph, features, labels, observable_id, masked_id, vali_id, 
     if weights_path is not None:
         torch.save(model.state_dict(), weights_path)
 
-    test_f1 = _eval(model, graph, masked_features, labels, test_id, device)
+    test_f1, test_acc = _eval(model, graph, masked_features, labels, test_id, device)
     print(f'  Best Val F1: {best_val_f1:.4f} | Test F1: {test_f1:.4f}')
-    return best_val_f1, test_f1
+    return best_val_f1, test_f1, test_acc
 
 
 def _eval(model, graph, masked_features, labels, eval_id, device):
@@ -179,6 +179,7 @@ def _eval(model, graph, masked_features, labels, eval_id, device):
             all_preds.append(preds)
             all_labels.append(true)
 
+    from sklearn.metrics import accuracy_score
     all_preds = torch.cat(all_preds).numpy()
     all_labels = torch.cat(all_labels).numpy()
-    return f1_score(all_labels, all_preds, average='macro')
+    return f1_score(all_labels, all_preds, average='macro'), accuracy_score(all_labels, all_preds)

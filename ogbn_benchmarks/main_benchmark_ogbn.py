@@ -62,7 +62,7 @@ def main():
     parser.add_argument('--batch_size', type=int, default=512)
     # KNN specific
     parser.add_argument('--K', type=int, default=3)
-    parser.add_argument('--max_hops', type=int, default=3)
+    parser.add_argument('--max_hops', type=int, default=10)
     # NESS SSL loss weights (rebalanced: old 100/50 starved classification)
     parser.add_argument('--w_edge', type=float, default=1.0)   # edge reconstruction
     parser.add_argument('--w_cls', type=float, default=1.0)    # classification
@@ -71,13 +71,24 @@ def main():
     parser.add_argument('--w_hist', type=float, default=1.0)   # neighbor label-histogram SSL
     parser.add_argument('--w_path', type=float, default=1.0)   # multi-hop link-pred SSL
     parser.add_argument('--w_triplet', type=float, default=1.0)  # distance-ranking triplet SSL
+    parser.add_argument('--w_anchor', type=float, default=1.0)   # anchor-distance-diff SSL
+    parser.add_argument('--w_stats', type=float, default=1.0)    # neighbor-std SSL (fixed-input negative)
+    parser.add_argument('--w_centroid', type=float, default=1.0) # neighbor-centroid SSL (fixed-input negative)
     parser.add_argument('--walk_len', type=int, default=2,
                         help="Hops for the 'path' SSL objective. Short (2-3) keeps "
                              "reachability discriminative; large values make ~all pairs reachable.")
-    parser.add_argument('--ssl_objective', type=str, nargs='*', default=['recon'],
+    parser.add_argument('--num_anchors', type=int, default=16,
+                        help="K landmarks for the 'anchor' SSL objective.")
+    parser.add_argument('--anchor_resample', type=int, default=5,
+                        help="Resample anchor landmarks every N epochs (input-varying).")
+    parser.add_argument('--ssl_objective', type=str, nargs='*', default=['hist', 'path'],
                         help="Space-separated SSL objectives for NESS: any of "
-                             "recon, hist, path, triplet — e.g. --ssl_objective triplet. "
-                             "Pass nothing (--ssl_objective) for no SSL.")
+                             "recon, hist, path, triplet, anchor, stats, centroid — "
+                             "e.g. --ssl_objective path anchor. Pass nothing for no SSL.")
+    parser.add_argument('--view2', type=str, default='edge_mask',
+                        choices=['edge_mask', 'dropout', 'feat_mask', 'ppr',
+                                 'prefill_contrast', 'deep'],
+                        help="How the SECOND contrastive view is built (view1 = edge-mask).")
     # Clustering (NESS / MATE / PaGCN large-graph path)
     parser.add_argument('--num_parts', type=int, default=50,
                         help='METIS partitions for OGBN-scale clustering')
@@ -156,10 +167,13 @@ def main():
         X_test = imputed[test_id].cpu().numpy()
         y_test = labels[test_id].cpu().numpy()
 
+        from sklearn.metrics import accuracy_score
         clf = LogisticRegression(max_iter=1000, C=1.0, solver='saga')
         clf.fit(X_train, y_train)
+        test_pred = clf.predict(X_test)
         val_f1 = f1_score(y_val, clf.predict(X_val), average='macro')
-        test_f1 = f1_score(y_test, clf.predict(X_test), average='macro')
+        test_f1 = f1_score(y_test, test_pred, average='macro')
+        test_acc = accuracy_score(y_test, test_pred)
 
         # Non-parametric: save the fitted downstream classifier as "weights"
         import pickle
@@ -167,7 +181,7 @@ def main():
             pickle.dump(clf, wf)
 
     elif args.model == 'GraphSAGE':
-        val_f1, test_f1 = train_GraphSAGE(
+        val_f1, test_f1, test_acc = train_GraphSAGE(
             graph, features, labels,
             observable_id, masked_id, vali_id, test_id,
             num_classes=num_classes,
@@ -184,7 +198,7 @@ def main():
         )
 
     elif args.model == 'FP':
-        val_f1, test_f1 = train_FP(
+        val_f1, test_f1, test_acc = train_FP(
             graph, features, labels,
             observable_id, masked_id, vali_id, test_id,
             num_classes=num_classes,
@@ -201,7 +215,7 @@ def main():
         )
 
     elif args.model == 'PaGCN':
-        val_f1, test_f1 = train_PaGCN(
+        val_f1, test_f1, test_acc = train_PaGCN(
             graph, features, labels,
             observable_id, masked_id, vali_id, test_id,
             num_classes=num_classes,
@@ -218,7 +232,7 @@ def main():
         )
 
     elif args.model == 'NESS':
-        val_f1, test_f1 = train_NESS(
+        val_f1, test_f1, test_acc = train_NESS(
             graph, features, labels,
             observable_id, masked_id, vali_id, test_id,
             num_classes=num_classes,
@@ -234,8 +248,11 @@ def main():
             cache_device=args.cache_device,
             prefill=args.prefill,
             ssl_hops=args.ssl_hops,
+            view2=args.view2,
             ssl_objective=args.ssl_objective,
             walk_len=args.walk_len,
+            num_anchors=args.num_anchors,
+            anchor_resample=args.anchor_resample,
             w_edge=args.w_edge,
             w_cls=args.w_cls,
             w_con=args.w_con,
@@ -243,12 +260,15 @@ def main():
             w_hist=args.w_hist,
             w_path=args.w_path,
             w_triplet=args.w_triplet,
+            w_anchor=args.w_anchor,
+            w_stats=args.w_stats,
+            w_centroid=args.w_centroid,
             log_path=log_path,
             weights_path=weights_path,
         )
 
     elif args.model == 'MATE':
-        val_f1, test_f1 = train_MATE_ogbn(
+        val_f1, test_f1, test_acc = train_MATE_ogbn(
             graph, features, labels,
             observable_id, masked_id, vali_id, test_id,
             num_classes=num_classes,
@@ -280,10 +300,13 @@ def main():
         X_test = imputed[test_id].cpu().numpy()
         y_test = labels[test_id].cpu().numpy()
 
+        from sklearn.metrics import accuracy_score
         clf = LogisticRegression(max_iter=1000, C=1.0, solver='saga', n_jobs=-1)
         clf.fit(X_train, y_train)
+        test_pred = clf.predict(X_test)
         val_f1 = f1_score(y_val, clf.predict(X_val), average='macro')
-        test_f1 = f1_score(y_test, clf.predict(X_test), average='macro')
+        test_f1 = f1_score(y_test, test_pred, average='macro')
+        test_acc = accuracy_score(y_test, test_pred)
 
         # Non-parametric: save the fitted downstream classifier as "weights"
         import pickle
@@ -295,6 +318,7 @@ def main():
     print('\n' + '=' * 70)
     print(f'  Val  Macro-F1: {val_f1:.4f}')
     print(f'  Test Macro-F1: {test_f1:.4f}')
+    print(f'  Test Accuracy: {test_acc:.4f}')
     print(f'  Time: {elapsed:.1f}s')
     print('=' * 70)
 
@@ -306,6 +330,7 @@ def main():
         'seed': args.seed,
         'val_f1_macro': val_f1,
         'test_f1_macro': test_f1,
+        'test_accuracy': test_acc,
         'train_time_s': round(elapsed, 1),
     }
     with open(os.path.join(run_dir, 'final_results.json'), 'w') as f:

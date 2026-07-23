@@ -190,7 +190,7 @@ def train_PaGCN(graph, features, labels, observable_id, masked_id, vali_id, test
         log_entry = {'epoch': epoch, 'loss': avg_loss, 'epoch_time_s': round(epoch_time, 2)}
 
         if epoch % 5 == 0:
-            val_f1 = _eval(model, cluster_cache, labels, vali_id, device)
+            val_f1, _ = _eval(model, cluster_cache, labels, vali_id, device)
             log_entry['val_f1'] = val_f1
             print(f'  Epoch {epoch}/{epochs} | Loss: {avg_loss:.4f} | Val F1: {val_f1:.4f} | {epoch_time:.1f}s')
             if val_f1 > best_val_f1:
@@ -217,10 +217,10 @@ def train_PaGCN(graph, features, labels, observable_id, masked_id, vali_id, test
     if weights_path is not None:
         torch.save(model.state_dict(), weights_path)
 
-    test_f1 = _eval(model, cluster_cache, labels, test_id, device)
+    test_f1, test_acc = _eval(model, cluster_cache, labels, test_id, device)
     print(f'  Best Val F1: {best_val_f1:.4f} | Test F1: {test_f1:.4f}')
     print(f'  Total training time: {total_train_time:.1f}s ({total_train_time/60:.1f} min)')
-    return best_val_f1, test_f1
+    return best_val_f1, test_f1, test_acc
 
 
 def _eval(model, cluster_cache, labels, eval_id, device):
@@ -241,7 +241,8 @@ def _eval(model, cluster_cache, labels, eval_id, device):
                 if g in eval_id_set:
                     all_preds[g] = preds[local_i].item()
 
+    from sklearn.metrics import accuracy_score
     eval_list = [n for n in eval_id.cpu().tolist() if n in all_preds]
     y_pred = [all_preds[n] for n in eval_list]
     y_true = labels[torch.tensor(eval_list)].cpu().tolist()
-    return f1_score(y_true, y_pred, average='macro')
+    return f1_score(y_true, y_pred, average='macro'), accuracy_score(y_true, y_pred)

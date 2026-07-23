@@ -1,0 +1,107 @@
+/home/erfan/MATE/venv/lib/python3.13/site-packages/outdated/__init__.py:36: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  from pkg_resources import parse_version
+/home/erfan/MATE/ogbn_benchmarks/data_loader.py:96: UserWarning: Sparse invariant checks are implicitly disabled. Memory errors (e.g. SEGFAULT) will occur when operating on a sparse tensor which violates the invariants, but checks incur performance overhead. To silence this warning, explicitly opt in or out. See `torch.sparse.check_sparse_tensor_invariants.__doc__` for guidance.  (Triggered internally at /pytorch/aten/src/ATen/Context.cpp:760.)
+  adj = torch.sparse_coo_tensor(edge_index, vals, (num_nodes, num_nodes)).coalesce()
+======================================================================
+  PaGCN | ogbn-arxiv | MCAR @ 20%
+======================================================================
+[1/3] Loading ogbn-arxiv...
+  169,343 nodes | 128 dims | 40 classes
+[2/3] Simulating MCAR missingness...
+Simulating MCAR missingness at 20% rate...
+  MCAR: Uniform random selection
+  Observable: 135,475 (80.0%)
+  Masked: 33,868 (20.0%)
+  Observable: 135,475 | Val: 16,934 | Test: 16,934
+[3/3] Running PaGCN...
+  Partitioning graph into 20 clusters...
+  Pre-caching clusters (with normalized adjacency)...
+  Cached 20 clusters
+  Training PaGCN for up to 400 epochs (patience=20)...
+  Epoch 5/400 | Loss: 2.8475 | Val F1: 0.0204 | 0.0s
+  Epoch 10/400 | Loss: 2.4639 | Val F1: 0.0277 | 0.0s
+  Epoch 15/400 | Loss: 2.2574 | Val F1: 0.0839 | 0.0s
+  Epoch 20/400 | Loss: 2.1358 | Val F1: 0.1018 | 0.0s
+  Epoch 25/400 | Loss: 2.1099 | Val F1: 0.1131 | 0.0s
+  Epoch 30/400 | Loss: 1.9758 | Val F1: 0.1239 | 0.0s
+  Epoch 35/400 | Loss: 1.9128 | Val F1: 0.1488 | 0.0s
+  Epoch 40/400 | Loss: 1.8902 | Val F1: 0.1705 | 0.0s
+  Epoch 45/400 | Loss: 1.8723 | Val F1: 0.1712 | 0.0s
+  Epoch 50/400 | Loss: 1.8877 | Val F1: 0.1674 | 0.0s
+  Epoch 55/400 | Loss: 1.8271 | Val F1: 0.1928 | 0.0s
+  Epoch 60/400 | Loss: 1.7772 | Val F1: 0.2082 | 0.0s
+  Epoch 65/400 | Loss: 1.8054 | Val F1: 0.2063 | 0.0s
+  Epoch 70/400 | Loss: 1.7474 | Val F1: 0.2028 | 0.0s
+  Epoch 75/400 | Loss: 1.8343 | Val F1: 0.1869 | 0.0s
+  Epoch 80/400 | Loss: 1.7308 | Val F1: 0.2066 | 0.0s
+  Epoch 85/400 | Loss: 1.7323 | Val F1: 0.2146 | 0.0s
+  Epoch 90/400 | Loss: 1.7321 | Val F1: 0.2160 | 0.0s
+  Epoch 95/400 | Loss: 1.7759 | Val F1: 0.2136 | 0.0s
+  Epoch 100/400 | Loss: 1.7099 | Val F1: 0.2229 | 0.0s
+  Epoch 105/400 | Loss: 1.7474 | Val F1: 0.2266 | 0.0s
+  Epoch 110/400 | Loss: 1.7149 | Val F1: 0.2266 | 0.0s
+  Epoch 115/400 | Loss: 1.6766 | Val F1: 0.2264 | 0.0s
+  Epoch 120/400 | Loss: 1.7068 | Val F1: 0.2241 | 0.0s
+  Epoch 125/400 | Loss: 1.6897 | Val F1: 0.2302 | 0.0s
+  Epoch 130/400 | Loss: 1.7047 | Val F1: 0.2283 | 0.0s
+  Epoch 135/400 | Loss: 1.8034 | Val F1: 0.2176 | 0.0s
+  Epoch 140/400 | Loss: 1.6852 | Val F1: 0.2323 | 0.0s
+  Epoch 145/400 | Loss: 1.6791 | Val F1: 0.2404 | 0.0s
+  Epoch 150/400 | Loss: 1.6807 | Val F1: 0.2391 | 0.0s
+  Epoch 155/400 | Loss: 1.6509 | Val F1: 0.2413 | 0.0s
+  Epoch 160/400 | Loss: 1.7202 | Val F1: 0.2293 | 0.0s
+  Epoch 165/400 | Loss: 1.6898 | Val F1: 0.2480 | 0.0s
+  Epoch 170/400 | Loss: 1.6495 | Val F1: 0.2475 | 0.0s
+  Epoch 175/400 | Loss: 1.6609 | Val F1: 0.2385 | 0.0s
+  Epoch 180/400 | Loss: 1.7133 | Val F1: 0.2274 | 0.0s
+  Epoch 185/400 | Loss: 1.7070 | Val F1: 0.2397 | 0.0s
+  Epoch 190/400 | Loss: 1.6593 | Val F1: 0.2517 | 0.0s
+  Epoch 195/400 | Loss: 1.6828 | Val F1: 0.2258 | 0.0s
+  Epoch 200/400 | Loss: 1.6562 | Val F1: 0.2338 | 0.0s
+  Epoch 205/400 | Loss: 1.6480 | Val F1: 0.2450 | 0.0s
+  Epoch 210/400 | Loss: 1.6446 | Val F1: 0.2397 | 0.0s
+  Epoch 215/400 | Loss: 1.6329 | Val F1: 0.2473 | 0.0s
+  Epoch 220/400 | Loss: 1.6852 | Val F1: 0.2338 | 0.0s
+  Epoch 225/400 | Loss: 1.7001 | Val F1: 0.2262 | 0.0s
+  Epoch 230/400 | Loss: 1.6396 | Val F1: 0.2510 | 0.0s
+  Epoch 235/400 | Loss: 1.6831 | Val F1: 0.2434 | 0.0s
+  Epoch 240/400 | Loss: 1.6670 | Val F1: 0.2475 | 0.0s
+  Epoch 245/400 | Loss: 1.6701 | Val F1: 0.2502 | 0.0s
+  Epoch 250/400 | Loss: 1.6674 | Val F1: 0.2377 | 0.0s
+  Epoch 255/400 | Loss: 1.6810 | Val F1: 0.2246 | 0.0s
+  Epoch 260/400 | Loss: 1.6430 | Val F1: 0.2462 | 0.0s
+  Epoch 265/400 | Loss: 1.6785 | Val F1: 0.2459 | 0.0s
+  Epoch 270/400 | Loss: 1.6277 | Val F1: 0.2548 | 0.0s
+  Epoch 275/400 | Loss: 1.6203 | Val F1: 0.2561 | 0.0s
+  Epoch 280/400 | Loss: 1.6519 | Val F1: 0.2483 | 0.0s
+  Epoch 285/400 | Loss: 1.6124 | Val F1: 0.2536 | 0.0s
+  Epoch 290/400 | Loss: 1.6337 | Val F1: 0.2494 | 0.0s
+  Epoch 295/400 | Loss: 1.6408 | Val F1: 0.2487 | 0.0s
+  Epoch 300/400 | Loss: 1.6727 | Val F1: 0.2371 | 0.0s
+  Epoch 305/400 | Loss: 1.6532 | Val F1: 0.2507 | 0.0s
+  Epoch 310/400 | Loss: 1.6375 | Val F1: 0.2400 | 0.0s
+  Epoch 315/400 | Loss: 1.6591 | Val F1: 0.2331 | 0.0s
+  Epoch 320/400 | Loss: 1.6724 | Val F1: 0.2392 | 0.0s
+  Epoch 325/400 | Loss: 1.6369 | Val F1: 0.2533 | 0.0s
+  Epoch 330/400 | Loss: 1.6644 | Val F1: 0.2421 | 0.0s
+  Epoch 335/400 | Loss: 1.6824 | Val F1: 0.2289 | 0.0s
+  Epoch 340/400 | Loss: 1.6461 | Val F1: 0.2533 | 0.0s
+  Epoch 345/400 | Loss: 1.6467 | Val F1: 0.2528 | 0.0s
+  Epoch 350/400 | Loss: 1.6566 | Val F1: 0.2431 | 0.0s
+  Epoch 355/400 | Loss: 1.6262 | Val F1: 0.2474 | 0.0s
+  Epoch 360/400 | Loss: 1.6194 | Val F1: 0.2481 | 0.0s
+  Epoch 365/400 | Loss: 1.6757 | Val F1: 0.2533 | 0.0s
+  Epoch 370/400 | Loss: 1.7238 | Val F1: 0.2468 | 0.0s
+  Epoch 375/400 | Loss: 1.6245 | Val F1: 0.2502 | 0.0s
+  Early stopping at epoch 375
+  Best Val F1: 0.2561 | Test F1: 0.2529
+  Total training time: 24.5s (0.4 min)
+
+======================================================================
+  Val  Macro-F1: 0.2561
+  Test Macro-F1: 0.2529
+  Test Accuracy: 0.5781
+  Time: 25.5s
+======================================================================
+
+  Results saved to: results/PaGCN_ogbn-arxiv_MCAR_0.2_20260722_002143

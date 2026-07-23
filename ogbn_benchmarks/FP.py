@@ -174,7 +174,7 @@ def train_FP(graph, features, labels, observable_id, masked_id, vali_id, test_id
         log_entry = {'epoch': epoch, 'loss': avg_loss, 'epoch_time_s': round(epoch_time, 2)}
 
         if epoch % 5 == 0:
-            val_f1 = _eval(model, graph, propagated, labels, vali_id, device)
+            val_f1, _ = _eval(model, graph, propagated, labels, vali_id, device)
             log_entry['val_f1'] = val_f1
             print(f'  Epoch {epoch}/{epochs} | Loss: {avg_loss:.4f} | Val F1: {val_f1:.4f} | {epoch_time:.1f}s')
             if val_f1 > best_val_f1:
@@ -201,10 +201,10 @@ def train_FP(graph, features, labels, observable_id, masked_id, vali_id, test_id
     if weights_path is not None:
         torch.save(model.state_dict(), weights_path)
 
-    test_f1 = _eval(model, graph, propagated, labels, test_id, device)
+    test_f1, test_acc = _eval(model, graph, propagated, labels, test_id, device)
     print(f'  Best Val F1: {best_val_f1:.4f} | Test F1: {test_f1:.4f}')
     print(f'  Total training time: {total_train_time:.1f}s ({total_train_time/60:.1f} min)')
-    return best_val_f1, test_f1
+    return best_val_f1, test_f1, test_acc
 
 
 def _eval(model, graph, propagated, labels, eval_id, device, batch_size=1024):
@@ -227,5 +227,6 @@ def _eval(model, graph, propagated, labels, eval_id, device, batch_size=1024):
             all_preds.append(logits[:batch.batch_size].argmax(dim=1).cpu())
             all_labels.append(batch.y[:batch.batch_size].squeeze().cpu())
 
-    return f1_score(torch.cat(all_labels).numpy(),
-                    torch.cat(all_preds).numpy(), average='macro')
+    from sklearn.metrics import accuracy_score
+    yl = torch.cat(all_labels).numpy(); yp = torch.cat(all_preds).numpy()
+    return f1_score(yl, yp, average='macro'), accuracy_score(yl, yp)

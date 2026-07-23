@@ -1,0 +1,31 @@
+/home/erfan/MATE/ogbn_benchmarks/../src/utils.py:183: UserWarning: torch.sparse.SparseTensor(indices, values, shape, *, device=) is deprecated.  Please use torch.sparse_coo_tensor(indices, values, shape, dtype=, device=). (Triggered internally at /pytorch/torch/csrc/utils/tensor_new.cpp:654.)
+  adj_norm = torch.sparse.FloatTensor(indices_norm, values_norm, torch.Size(adj_norm.shape))
+/home/erfan/MATE/ogbn_benchmarks/KNN.py:52: UserWarning: Sparse invariant checks are implicitly disabled. Memory errors (e.g. SEGFAULT) will occur when operating on a sparse tensor which violates the invariants, but checks incur performance overhead. To silence this warning, explicitly opt in or out. See `torch.sparse.check_sparse_tensor_invariants.__doc__` for guidance.  (Triggered internally at /pytorch/aten/src/ATen/Context.cpp:760.)
+  adj_norm = torch.sparse_coo_tensor(
+/home/erfan/MATE/venv/lib/python3.13/site-packages/sklearn/linear_model/_logistic.py:1457: FutureWarning: 'n_jobs' has no effect since 1.8 and will be removed in 1.10. You provided 'n_jobs=-1', please leave it unspecified.
+  warnings.warn(msg, category=FutureWarning)
+======================================================================
+  KNN | cora | MCAR @ 80%
+======================================================================
+[1/3] Loading cora...
+loading dataset: cora
+  2,708 nodes | 1433 dims | 7 classes
+[2/3] Simulating MCAR missingness...
+Simulating MCAR missingness at 80% rate...
+  MCAR: Uniform random selection
+  Observable: 542 (20.0%)
+  Masked: 2,166 (80.0%)
+  Observable: 542 | Val: 1,083 | Test: 1,083
+[3/3] Running KNN...
+  Running 3-hop sparse propagation on 2,166 missing nodes...
+  KNN done in 0.1s | 150 nodes used global mean fallback
+  Training linear classifier on imputed features...
+
+======================================================================
+  Val  Macro-F1: 0.7803
+  Test Macro-F1: 0.7600
+  Test Accuracy: 0.7729
+  Time: 1.1s
+======================================================================
+
+  Results saved to: results/KNN_cora_MCAR_0.8_20260721_161823

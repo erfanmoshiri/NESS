@@ -1,0 +1,59 @@
+/home/erfan/MATE/ogbn_benchmarks/../src/utils.py:183: UserWarning: torch.sparse.SparseTensor(indices, values, shape, *, device=) is deprecated.  Please use torch.sparse_coo_tensor(indices, values, shape, dtype=, device=). (Triggered internally at /pytorch/torch/csrc/utils/tensor_new.cpp:654.)
+  adj_norm = torch.sparse.FloatTensor(indices_norm, values_norm, torch.Size(adj_norm.shape))
+======================================================================
+  MATE | citeseer | MCAR @ 40%
+======================================================================
+[1/3] Loading citeseer...
+loading dataset: citeseer
+  3,327 nodes | 3703 dims | 6 classes
+[2/3] Simulating MCAR missingness...
+Simulating MCAR missingness at 40% rate...
+  MCAR: Uniform random selection
+  Observable: 1,997 (60.0%)
+  Masked: 1,330 (40.0%)
+  Observable: 1,997 | Val: 665 | Test: 665
+[3/3] Running MATE...
+  Small graph: full-batch (single cluster, no partitioning)
+  Training MATE for up to 400 epochs (patience=20)...
+  Epoch 5/400 | Total: 1.716 Edge: 0.563 Con: 0.226 Cls: 0.927 | Val F1: 0.5615 | 0.0s
+  Epoch 10/400 | Total: 1.143 Edge: 0.458 Con: 0.213 Cls: 0.472 | Val F1: 0.6471 | 0.0s
+  Epoch 15/400 | Total: 0.935 Edge: 0.405 Con: 0.201 Cls: 0.328 | Val F1: 0.6506 | 0.0s
+  Epoch 20/400 | Total: 0.862 Edge: 0.363 Con: 0.188 Cls: 0.311 | Val F1: 0.6358 | 0.0s
+  Epoch 25/400 | Total: 0.760 Edge: 0.337 Con: 0.176 Cls: 0.247 | Val F1: 0.6230 | 0.0s
+  Epoch 30/400 | Total: 0.724 Edge: 0.307 Con: 0.165 Cls: 0.252 | Val F1: 0.6304 | 0.0s
+  Epoch 35/400 | Total: 0.682 Edge: 0.285 Con: 0.157 Cls: 0.241 | Val F1: 0.6237 | 0.0s
+  Epoch 40/400 | Total: 0.658 Edge: 0.268 Con: 0.151 Cls: 0.239 | Val F1: 0.6216 | 0.0s
+  Epoch 45/400 | Total: 0.639 Edge: 0.255 Con: 0.147 Cls: 0.237 | Val F1: 0.6240 | 0.0s
+  Epoch 50/400 | Total: 0.616 Edge: 0.234 Con: 0.141 Cls: 0.240 | Val F1: 0.6586 | 0.0s
+  Epoch 55/400 | Total: 0.613 Edge: 0.227 Con: 0.138 Cls: 0.248 | Val F1: 0.6304 | 0.0s
+  Epoch 60/400 | Total: 0.590 Edge: 0.216 Con: 0.136 Cls: 0.238 | Val F1: 0.6280 | 0.0s
+  Epoch 65/400 | Total: 0.594 Edge: 0.209 Con: 0.131 Cls: 0.254 | Val F1: 0.6463 | 0.0s
+  Epoch 70/400 | Total: 0.576 Edge: 0.211 Con: 0.129 Cls: 0.236 | Val F1: 0.6399 | 0.0s
+  Epoch 75/400 | Total: 0.559 Edge: 0.200 Con: 0.126 Cls: 0.233 | Val F1: 0.6240 | 0.0s
+  Epoch 80/400 | Total: 0.556 Edge: 0.203 Con: 0.125 Cls: 0.228 | Val F1: 0.6317 | 0.0s
+  Epoch 85/400 | Total: 0.538 Edge: 0.198 Con: 0.121 Cls: 0.219 | Val F1: 0.6245 | 0.0s
+  Epoch 90/400 | Total: 0.533 Edge: 0.200 Con: 0.119 Cls: 0.213 | Val F1: 0.6371 | 0.0s
+  Epoch 95/400 | Total: 0.537 Edge: 0.183 Con: 0.121 Cls: 0.233 | Val F1: 0.6239 | 0.0s
+  Epoch 100/400 | Total: 0.534 Edge: 0.208 Con: 0.123 Cls: 0.203 | Val F1: 0.6172 | 0.0s
+  Epoch 105/400 | Total: 0.519 Edge: 0.183 Con: 0.118 Cls: 0.218 | Val F1: 0.6344 | 0.0s
+  Epoch 110/400 | Total: 0.543 Edge: 0.193 Con: 0.118 Cls: 0.231 | Val F1: 0.6286 | 0.0s
+  Epoch 115/400 | Total: 0.536 Edge: 0.185 Con: 0.119 Cls: 0.232 | Val F1: 0.6460 | 0.0s
+  Epoch 120/400 | Total: 0.522 Edge: 0.182 Con: 0.119 Cls: 0.221 | Val F1: 0.6256 | 0.0s
+  Epoch 125/400 | Total: 0.529 Edge: 0.188 Con: 0.117 Cls: 0.224 | Val F1: 0.6296 | 0.0s
+  Epoch 130/400 | Total: 0.531 Edge: 0.183 Con: 0.115 Cls: 0.233 | Val F1: 0.6360 | 0.0s
+  Epoch 135/400 | Total: 0.554 Edge: 0.191 Con: 0.118 Cls: 0.245 | Val F1: 0.6275 | 0.0s
+  Epoch 140/400 | Total: 0.524 Edge: 0.182 Con: 0.115 Cls: 0.227 | Val F1: 0.6269 | 0.0s
+  Epoch 145/400 | Total: 0.521 Edge: 0.186 Con: 0.117 Cls: 0.218 | Val F1: 0.6413 | 0.0s
+  Epoch 150/400 | Total: 0.517 Edge: 0.181 Con: 0.118 Cls: 0.218 | Val F1: 0.6344 | 0.0s
+  Early stopping at epoch 150
+  Best Val F1: 0.6586 | Test F1: 0.6764
+  Total training time: 3.4s (0.1 min) over 150 epochs
+
+======================================================================
+  Val  Macro-F1: 0.6586
+  Test Macro-F1: 0.6764
+  Test Accuracy: 0.7038
+  Time: 3.6s
+======================================================================
+
+  Results saved to: results/MATE_citeseer_MCAR_0.4_20260721_163403

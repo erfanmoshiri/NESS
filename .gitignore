@@ -11,8 +11,14 @@ model
 papers
 
 benchmark_models/results
-ogbn_benchmarks/results
 ogbn_benchmarks/old_results
+
+# Under ogbn_benchmarks/results, track ONLY experiment folders (e*) and all their
+# contents; ignore every other run directory.
+ogbn_benchmarks/results/*
+!ogbn_benchmarks/results/e*/
 
 docs
 imputation_benchmarks/results
+
+TGINA Template-LaTeX

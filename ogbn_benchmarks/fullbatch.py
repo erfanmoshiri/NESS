@@ -54,7 +54,7 @@ def train_full_batch(model, optimizer, logits_fn, labels,
         log_entry = {'epoch': epoch, 'loss': loss.item(), 'epoch_time_s': round(epoch_time, 3)}
 
         if epoch % 5 == 0:
-            val_f1 = _eval_full(model, logits_fn, labels, vali_id)
+            val_f1, _ = _eval_full(model, logits_fn, labels, vali_id)
             log_entry['val_f1'] = val_f1
             print(f'  Epoch {epoch}/{epochs} | Loss: {loss.item():.4f} | Val F1: {val_f1:.4f} | {epoch_time:.2f}s')
             if val_f1 > best_val_f1:
@@ -81,16 +81,18 @@ def train_full_batch(model, optimizer, logits_fn, labels,
     if weights_path is not None:
         torch.save(model.state_dict(), weights_path)
 
-    test_f1 = _eval_full(model, logits_fn, labels, test_id)
-    print(f'  Best Val F1: {best_val_f1:.4f} | Test F1: {test_f1:.4f}')
+    test_f1, test_acc = _eval_full(model, logits_fn, labels, test_id)
+    print(f'  Best Val F1: {best_val_f1:.4f} | Test F1: {test_f1:.4f} | Test Acc: {test_acc:.4f}')
     print(f'  Total training time: {total_train_time:.1f}s')
-    return best_val_f1, test_f1
+    return best_val_f1, test_f1, test_acc
 
 
 def _eval_full(model, logits_fn, labels, eval_id):
+    """Returns (macro_f1, accuracy)."""
+    from sklearn.metrics import accuracy_score
     model.eval()
     with torch.no_grad():
         logits = logits_fn()
         preds = logits[eval_id].argmax(dim=1).cpu().numpy()
         true = labels[eval_id].cpu().numpy()
-    return f1_score(true, preds, average='macro')
+    return f1_score(true, preds, average='macro'), accuracy_score(true, preds)

@@ -1,0 +1,68 @@
+/home/erfan/MATE/ogbn_benchmarks/../src/utils.py:183: UserWarning: torch.sparse.SparseTensor(indices, values, shape, *, device=) is deprecated.  Please use torch.sparse_coo_tensor(indices, values, shape, dtype=, device=). (Triggered internally at /pytorch/torch/csrc/utils/tensor_new.cpp:654.)
+  adj_norm = torch.sparse.FloatTensor(indices_norm, values_norm, torch.Size(adj_norm.shape))
+======================================================================
+  MATE | cora | MCAR @ 80%
+======================================================================
+[1/3] Loading cora...
+loading dataset: cora
+  2,708 nodes | 1433 dims | 7 classes
+[2/3] Simulating MCAR missingness...
+Simulating MCAR missingness at 80% rate...
+  MCAR: Uniform random selection
+  Observable: 542 (20.0%)
+  Masked: 2,166 (80.0%)
+  Observable: 542 | Val: 1,083 | Test: 1,083
+[3/3] Running MATE...
+  Small graph: full-batch (single cluster, no partitioning)
+  Training MATE for up to 400 epochs (patience=20)...
+  Epoch 5/400 | Total: 1.734 Edge: 0.624 Con: 0.241 Cls: 0.869 | Val F1: 0.7293 | 0.0s
+  Epoch 10/400 | Total: 0.897 Edge: 0.441 Con: 0.179 Cls: 0.276 | Val F1: 0.7489 | 0.0s
+  Epoch 15/400 | Total: 0.882 Edge: 0.447 Con: 0.176 Cls: 0.258 | Val F1: 0.7196 | 0.0s
+  Epoch 20/400 | Total: 0.686 Edge: 0.369 Con: 0.168 Cls: 0.150 | Val F1: 0.7296 | 0.0s
+  Epoch 25/400 | Total: 0.644 Edge: 0.325 Con: 0.165 Cls: 0.154 | Val F1: 0.7729 | 0.0s
+  Epoch 30/400 | Total: 0.575 Edge: 0.302 Con: 0.158 Cls: 0.115 | Val F1: 0.7680 | 0.0s
+  Epoch 35/400 | Total: 0.563 Edge: 0.291 Con: 0.151 Cls: 0.120 | Val F1: 0.7635 | 0.0s
+  Epoch 40/400 | Total: 0.533 Edge: 0.265 Con: 0.150 Cls: 0.118 | Val F1: 0.7614 | 0.0s
+  Epoch 45/400 | Total: 0.572 Edge: 0.263 Con: 0.149 Cls: 0.160 | Val F1: 0.7720 | 0.0s
+  Epoch 50/400 | Total: 0.536 Edge: 0.264 Con: 0.147 Cls: 0.124 | Val F1: 0.7630 | 0.0s
+  Epoch 55/400 | Total: 0.531 Edge: 0.265 Con: 0.148 Cls: 0.118 | Val F1: 0.7582 | 0.0s
+  Epoch 60/400 | Total: 0.499 Edge: 0.249 Con: 0.147 Cls: 0.103 | Val F1: 0.7598 | 0.0s
+  Epoch 65/400 | Total: 0.496 Edge: 0.247 Con: 0.146 Cls: 0.102 | Val F1: 0.7685 | 0.0s
+  Epoch 70/400 | Total: 0.518 Edge: 0.253 Con: 0.146 Cls: 0.118 | Val F1: 0.7736 | 0.0s
+  Epoch 75/400 | Total: 0.522 Edge: 0.256 Con: 0.147 Cls: 0.119 | Val F1: 0.7732 | 0.0s
+  Epoch 80/400 | Total: 0.479 Edge: 0.244 Con: 0.145 Cls: 0.090 | Val F1: 0.7737 | 0.0s
+  Epoch 85/400 | Total: 0.502 Edge: 0.248 Con: 0.144 Cls: 0.109 | Val F1: 0.7657 | 0.0s
+  Epoch 90/400 | Total: 0.494 Edge: 0.248 Con: 0.145 Cls: 0.101 | Val F1: 0.7567 | 0.0s
+  Epoch 95/400 | Total: 0.488 Edge: 0.248 Con: 0.143 Cls: 0.097 | Val F1: 0.7828 | 0.0s
+  Epoch 100/400 | Total: 0.483 Edge: 0.236 Con: 0.137 Cls: 0.110 | Val F1: 0.7724 | 0.0s
+  Epoch 105/400 | Total: 0.501 Edge: 0.237 Con: 0.136 Cls: 0.127 | Val F1: 0.7664 | 0.0s
+  Epoch 110/400 | Total: 0.477 Edge: 0.232 Con: 0.134 Cls: 0.111 | Val F1: 0.7592 | 0.0s
+  Epoch 115/400 | Total: 0.503 Edge: 0.242 Con: 0.134 Cls: 0.127 | Val F1: 0.7696 | 0.0s
+  Epoch 120/400 | Total: 0.503 Edge: 0.224 Con: 0.134 Cls: 0.145 | Val F1: 0.7566 | 0.0s
+  Epoch 125/400 | Total: 0.485 Edge: 0.227 Con: 0.135 Cls: 0.123 | Val F1: 0.7643 | 0.0s
+  Epoch 130/400 | Total: 0.475 Edge: 0.228 Con: 0.135 Cls: 0.112 | Val F1: 0.7827 | 0.0s
+  Epoch 135/400 | Total: 0.463 Edge: 0.223 Con: 0.136 Cls: 0.104 | Val F1: 0.7732 | 0.0s
+  Epoch 140/400 | Total: 0.427 Edge: 0.222 Con: 0.134 Cls: 0.071 | Val F1: 0.7765 | 0.0s
+  Epoch 145/400 | Total: 0.458 Edge: 0.227 Con: 0.134 Cls: 0.097 | Val F1: 0.7633 | 0.0s
+  Epoch 150/400 | Total: 0.481 Edge: 0.234 Con: 0.135 Cls: 0.112 | Val F1: 0.7522 | 0.0s
+  Epoch 155/400 | Total: 0.467 Edge: 0.230 Con: 0.135 Cls: 0.102 | Val F1: 0.7709 | 0.0s
+  Epoch 160/400 | Total: 0.492 Edge: 0.226 Con: 0.135 Cls: 0.131 | Val F1: 0.7687 | 0.0s
+  Epoch 165/400 | Total: 0.467 Edge: 0.221 Con: 0.135 Cls: 0.111 | Val F1: 0.7441 | 0.0s
+  Epoch 170/400 | Total: 0.487 Edge: 0.217 Con: 0.135 Cls: 0.135 | Val F1: 0.7565 | 0.0s
+  Epoch 175/400 | Total: 0.494 Edge: 0.225 Con: 0.134 Cls: 0.135 | Val F1: 0.7643 | 0.0s
+  Epoch 180/400 | Total: 0.429 Edge: 0.218 Con: 0.135 Cls: 0.076 | Val F1: 0.7630 | 0.0s
+  Epoch 185/400 | Total: 0.495 Edge: 0.213 Con: 0.133 Cls: 0.148 | Val F1: 0.7502 | 0.0s
+  Epoch 190/400 | Total: 0.424 Edge: 0.223 Con: 0.133 Cls: 0.067 | Val F1: 0.7458 | 0.0s
+  Epoch 195/400 | Total: 0.452 Edge: 0.219 Con: 0.133 Cls: 0.099 | Val F1: 0.7726 | 0.0s
+  Early stopping at epoch 195
+  Best Val F1: 0.7828 | Test F1: 0.7344
+  Total training time: 4.0s (0.1 min) over 195 epochs
+
+======================================================================
+  Val  Macro-F1: 0.7828
+  Test Macro-F1: 0.7344
+  Test Accuracy: 0.7525
+  Time: 4.1s
+======================================================================
+
+  Results saved to: results/MATE_cora_MCAR_0.8_20260721_161831

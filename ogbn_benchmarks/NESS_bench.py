@@ -132,6 +132,104 @@ def _within_khop_mask(edge_index, num_nodes, k=3):
     return reach  # [N, N] bool: within-k-hop
 
 
+def _landmark_distances(sp_adj, landmarks, num_nodes, device, max_hops=None):
+    """
+    Multi-source BFS hop-distance from each landmark to all nodes -> [num_nodes, K],
+    normalized by the longest finite shortest path (diameter proxy). Unreachable -> 1.0.
+    Vectorized: propagate a [N, K] reached-frontier via one sparse matmul per hop;
+    newly-reached (node, landmark) pairs get the current hop as their distance.
+    K = len(landmarks). Cheap (K small, few hops); used by the anchor-diff objective.
+    """
+    K = landmarks.numel()
+    INF = float(num_nodes + 1)
+    dist = torch.full((num_nodes, K), INF, device=device)
+    reached = torch.zeros(num_nodes, K, device=device)
+    ar = torch.arange(K, device=device)
+    dist[landmarks, ar] = 0.0
+    reached[landmarks, ar] = 1.0
+    frontier = reached.clone()
+    if max_hops is None:
+        max_hops = num_nodes
+    for hop in range(1, max_hops + 1):
+        # who is reachable in exactly one more hop from the current frontier
+        nxt = torch.sparse.mm(sp_adj, frontier)          # [N, K]
+        newly = (nxt > 0) & (reached == 0)
+        if not newly.any():
+            break
+        dist[newly] = float(hop)
+        reached[newly] = 1.0
+        frontier = newly.float()
+    finite = dist[dist < INF]
+    diameter = max(finite.max().item() if finite.numel() > 0 else 1.0, 1.0)
+    dist = dist.clamp(max=diameter) / diameter          # unreachable -> 1.0
+    return dist  # [num_nodes, K] in [0,1]
+
+
+def _ppr_diffuse(edge_index, x, num_nodes, alpha=0.15, iters=10):
+    """Personalized-PageRank diffusion of features: z = (1-α) Ã z + α x, iterated.
+    Static per cluster (precomputed once). Returns diffused feature matrix [N, D]."""
+    dev = x.device
+    ei = edge_index
+    deg = torch.zeros(num_nodes, device=dev).scatter_add_(
+        0, ei[0], torch.ones(ei.size(1), device=dev)).clamp(min=1)
+    vals = (1.0 / deg[ei[0]].sqrt()) * (1.0 / deg[ei[1]].sqrt())  # sym-norm
+    A = torch.sparse_coo_tensor(ei, vals, (num_nodes, num_nodes)).coalesce()
+    h = x.clone()
+    for _ in range(iters):
+        h = (1 - alpha) * torch.sparse.mm(A, h) + alpha * x
+    return h
+
+
+def make_views(view2, x, edge_index, num_nodes, encoder, mask_edge, device,
+               deep_encoder=None, x_raw=None, ppr_cache=None):
+    """
+    Build two encoded views (z1, z2) plus the view-1 masked edges used by edge/path loss.
+
+    view1 is always the standard edge-masked encoding of x.
+    view2 depends on `view2`:
+      edge_mask         — second independent random edge-mask (default; current behavior)
+      dropout           — same graph+features, second stochastic forward pass (dropout only)
+      feat_mask         — view2 randomly zeroes a fraction of feature dims
+      ppr               — view2 uses PPR-diffused features (static, precomputed in ppr_cache)
+      prefill_contrast  — view1 = prefilled x, view2 = raw (zero-filled) x_raw
+      deep              — view2 uses a deeper encoder (imbalanced depth)
+
+    Returns (z1, z2, masked_edges).
+    """
+    rem1, masked_edges = mask_edge(edge_index)
+
+    if view2 == 'edge_mask':
+        rem2, _ = mask_edge(edge_index)
+        z1 = encoder(x, rem1)
+        z2 = encoder(x, rem2)
+    elif view2 == 'dropout':
+        # same graph+features; diversity comes only from dropout stochasticity
+        z1 = encoder(x, rem1)
+        z2 = encoder(x, rem1)
+    elif view2 == 'feat_mask':
+        rem2, _ = mask_edge(edge_index)
+        fmask = (torch.rand(x.size(1), device=device) > 0.3).float()  # drop ~30% dims
+        z1 = encoder(x, rem1)
+        z2 = encoder(x * fmask, rem2)
+    elif view2 == 'ppr':
+        rem2, _ = mask_edge(edge_index)
+        z1 = encoder(x, rem1)
+        z2 = encoder(ppr_cache, rem2)         # diffused features (precomputed)
+    elif view2 == 'prefill_contrast':
+        # view1 = prefilled x, view2 = raw zero-filled features
+        rem2, _ = mask_edge(edge_index)
+        z1 = encoder(x, rem1)
+        z2 = encoder(x_raw, rem2)
+    elif view2 == 'deep':
+        rem2, _ = mask_edge(edge_index)
+        z1 = encoder(x, rem1)
+        z2 = deep_encoder(x, rem2)            # deeper encoder (imbalanced depth)
+    else:
+        raise ValueError(f'unknown view2: {view2}')
+
+    return z1, z2, masked_edges
+
+
 def _cluster_to(c, device):
     """Move a cached cluster's tensors to `device` for a single step."""
     out = {
@@ -139,13 +237,12 @@ def _cluster_to(c, device):
         'edge_index': c['edge_index'].to(device),
         'aug_edge_index': c['aug_edge_index'].to(device),
         'global_indices': c['global_indices'],  # only used on CPU for eval gather
-        'target_stats': c['target_stats'].to(device),
-        'target_centroid': c['target_centroid'].to(device),
         'obs_mask': c['obs_mask'].to(device),
         'num_nodes': c['num_nodes'],
     }
-    if 'target_hist' in c:
-        out['target_hist'] = c['target_hist'].to(device)
+    for key in ('target_stats', 'target_centroid', 'target_hist', 'x_raw'):
+        if key in c:
+            out[key] = c[key].to(device)
     return out
 
 
@@ -182,10 +279,12 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
                decoder_channels=64, dropout=0.5, lr=0.001, weight_decay=5e-5,
                epochs=200, patience=20, num_parts=50, p=0.7,
                cache_device='cpu', prefill='fp', fp_iterations=40, ssl_hops=2,
-               ssl_objective=('recon',), # list/tuple of objectives, e.g. ['recon','path']
+               view2='edge_mask',        # second-view construction (see make_views)
+               ssl_objective=('hist', 'path'), # list/tuple of objectives, e.g. ['recon','path']
                walk_len=2,               # hops for 'path' objective (short = tight, discriminative locality)
+               num_anchors=16, anchor_resample=5,  # 'anchor' objective: K landmarks, resample every N epochs
                w_edge=1.0, w_cls=1.0, w_con=1.0, w_recon=1.0, w_hist=1.0, w_path=1.0,
-               w_triplet=1.0,
+               w_triplet=1.0, w_anchor=1.0, w_stats=1.0, w_centroid=1.0,
                log_path=None, weights_path=None):
     """
     Args:
@@ -219,6 +318,7 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
     # Zero out missing nodes
     masked_features = features.clone()
     masked_features[masked_id] = 0.0
+    raw_features = masked_features.clone()  # zero-filled (pre-prefill); for prefill_contrast view
 
     # Optional: prefill missing nodes via Feature Propagation (long-range reach),
     # instead of leaving them at 0. Helps at high missingness where 2-hop
@@ -235,10 +335,13 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
         # Keep observable rows exact; fill only masked rows with propagated values
         masked_features[masked_id] = propagated[masked_id.cpu()]
 
-    # SSL targets (once, on full graph)
-    print(f'  Computing SSL targets (neighborhood stats + centroid, {ssl_hops}-hop)...')
-    target_stats, target_centroid = _compute_ssl_targets(
-        adj, features, masked_features, observable_id, device, ssl_hops=ssl_hops)
+    # SSL targets (once, on full graph) — only compute if a feature-neighborhood
+    # objective (stats/centroid) is actually active (they are fixed-input negatives).
+    target_stats = target_centroid = None
+    if 'stats' in ssl_set or 'centroid' in ssl_set:
+        print(f'  Computing SSL targets (neighborhood stats + centroid, {ssl_hops}-hop)...')
+        target_stats, target_centroid = _compute_ssl_targets(
+            adj, features, masked_features, observable_id, device, ssl_hops=ssl_hops)
 
     obs_mask_full = torch.zeros(num_nodes, dtype=torch.bool)
     obs_mask_full[observable_id.cpu()] = True
@@ -253,6 +356,10 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
     mask_edge = MaskEdge(p=p)
     model = _build_model(num_features, num_classes, encoder_channels, hidden,
                          decoder_channels, dropout, p, device)
+    # Deeper encoder for the 'deep' view2 (imbalanced-depth contrast); built only if needed.
+    deep_encoder = (GNNEncoder(num_features, encoder_channels, hidden,
+                               num_layers=3, dropout=dropout, layer='gcn', activation='elu')
+                    .to(device) if view2 == 'deep' else None)
     # Extra prediction heads per objective
     hist_head = torch.nn.Linear(hidden, num_classes).to(device) if 'hist' in ssl_set else None
     # Dedicated path-decoder (separate from edge_decoder, which learns 1-hop edges;
@@ -261,11 +368,21 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
         torch.nn.Linear(hidden, decoder_channels), torch.nn.ReLU(),
         torch.nn.Linear(decoder_channels, 1)
     ).to(device) if 'path' in ssl_set else None)
+    # Anchor-diff head: input = concat(z_u, z_v) -> predict signed anchor-distance diff.
+    # Input-varying/relational objective (fresh (u,v,anchor) each step), global structure.
+    anchor_head = (torch.nn.Sequential(
+        torch.nn.Linear(2 * hidden, decoder_channels), torch.nn.ReLU(),
+        torch.nn.Linear(decoder_channels, 1)
+    ).to(device) if 'anchor' in ssl_set else None)
     params = list(model.parameters())
     if hist_head is not None:
         params += list(hist_head.parameters())
     if path_head is not None:
         params += list(path_head.parameters())
+    if anchor_head is not None:
+        params += list(anchor_head.parameters())
+    if deep_encoder is not None:
+        params += list(deep_encoder.parameters())
     optimizer = optim.Adam(params, lr=lr, weight_decay=weight_decay)
 
     # cache_dev: where cached cluster tensors live.
@@ -283,11 +400,14 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
             'x': masked_features.to(cache_dev), 'y': labels.to(cache_dev),
             'edge_index': ei.to(cache_dev), 'aug_edge_index': aug_ei.to(cache_dev),
             'global_indices': gidx.to(cache_dev),
-            'target_stats': target_stats.to(cache_dev),
-            'target_centroid': target_centroid.to(cache_dev),
             'obs_mask': obs_mask_full.to(cache_dev),
             'num_nodes': num_nodes,
         }
+        if view2 == 'prefill_contrast':
+            single['x_raw'] = raw_features.to(cache_dev)
+        if target_stats is not None:
+            single['target_stats'] = target_stats.to(cache_dev)
+            single['target_centroid'] = target_centroid.to(cache_dev)
         if target_hist is not None:
             single['target_hist'] = target_hist.to(cache_dev)
         cluster_cache = [single]
@@ -295,6 +415,8 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
         graph_cpu = graph.clone()
         graph_cpu.x = masked_features.cpu()
         graph_cpu.y = labels.cpu()
+        if view2 == 'prefill_contrast':
+            graph_cpu.x_raw = raw_features.cpu()  # ClusterData permutes it alongside x
         print(f'  Partitioning graph into {num_parts} clusters (cache_device={cache_device})...')
         cluster_data = ClusterData(graph_cpu, num_parts=num_parts,
                                    save_dir=None, log=False)
@@ -310,11 +432,14 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
                 'edge_index': batch.edge_index.to(cache_dev),
                 'aug_edge_index': aug_ei.to(cache_dev),
                 'global_indices': gidx_cpu.to(cache_dev),
-                'target_stats': target_stats[gidx_cpu].to(cache_dev),
-                'target_centroid': target_centroid[gidx_cpu].to(cache_dev),
                 'obs_mask': obs_mask_full[gidx_cpu].to(cache_dev),
                 'num_nodes': batch.num_nodes,
             }
+            if view2 == 'prefill_contrast':
+                entry['x_raw'] = batch.x_raw.to(cache_dev)
+            if target_stats is not None:
+                entry['target_stats'] = target_stats[gidx_cpu].to(cache_dev)
+                entry['target_centroid'] = target_centroid[gidx_cpu].to(cache_dev)
             if target_hist is not None:
                 entry['target_hist'] = target_hist[gidx_cpu].to(cache_dev)
             cluster_cache.append(entry)
@@ -333,23 +458,32 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
         model.train()
         epoch_start = time.time()
         el = {'total': 0.0, 'edge': 0.0, 'con': 0.0, 'cls': 0.0,
-              'recon': 0.0, 'hist': 0.0, 'path': 0.0, 'triplet': 0.0}
+              'recon': 0.0, 'hist': 0.0, 'path': 0.0, 'triplet': 0.0, 'anchor': 0.0,
+              'stats': 0.0, 'centroid': 0.0}
         random.shuffle(cluster_cache)
 
         for c0 in cluster_cache:
             # Move this cluster to GPU for the step (no-op if already on GPU)
             c = _cluster_to(c0, device) if cache_device == 'cpu' else c0
             edge_index = c['edge_index']
-            rem1, masked_edges = mask_edge(edge_index)
-            rem2, _ = mask_edge(edge_index)
+
+            # PPR-diffused features (static) — precompute once per cluster, memoize on c0
+            ppr_cache = None
+            if view2 == 'ppr':
+                if 'ppr' not in c0:
+                    c0['ppr'] = _ppr_diffuse(edge_index, c['x'], c['num_nodes']).to(
+                        torch.device('cpu') if cache_device == 'cpu' else device)
+                ppr_cache = c0['ppr'].to(device)
+
+            # Build the two views (view1 = edge-masked; view2 per --view2)
+            z1, z2, masked_edges = make_views(
+                view2, c['x'], edge_index, c['num_nodes'], encoder, mask_edge, device,
+                deep_encoder=deep_encoder, x_raw=c.get('x_raw'), ppr_cache=ppr_cache)
+            z = (z1 + z2) * 0.5
 
             num_neg = min(masked_edges.size(1), 50000)
             neg_edges = negative_sampling(c['aug_edge_index'], num_nodes=c['num_nodes'],
                                           num_neg_samples=num_neg, method='sparse')
-
-            z1 = encoder(c['x'], rem1)
-            z2 = encoder(c['x'], rem2)
-            z = (z1 + z2) * 0.5
 
             # Edge loss (subsample edges)
             max_edges = 100000
@@ -382,7 +516,21 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
             # --- SSL objectives (any subset active via ssl_set) ---
             loss_ssl = torch.tensor(0.0, device=device)
 
-            ssl_vals = {'recon': 0.0, 'hist': 0.0, 'path': 0.0, 'triplet': 0.0}  # per-step raw
+            ssl_vals = {'recon': 0.0, 'hist': 0.0, 'path': 0.0, 'triplet': 0.0, 'anchor': 0.0,
+                        'stats': 0.0, 'centroid': 0.0}  # per-step raw
+
+            if 'centroid' in ssl_set:
+                # Fixed-input per-node: predict neighborhood centroid from z (redundant
+                # with aggregation — kept as a negative-result baseline for the ablation).
+                loss_centroid = F.mse_loss(model.residual_predictor(z), c['target_centroid'])
+                loss_ssl = loss_ssl + w_centroid * loss_centroid
+                ssl_vals['centroid'] = loss_centroid.detach().item()
+
+            if 'stats' in ssl_set:
+                # Fixed-input per-node: predict neighborhood spread (std) from z.
+                loss_stats = F.mse_loss(model.stats_predictor(z), c['target_stats'])
+                loss_ssl = loss_ssl + w_stats * loss_stats
+                ssl_vals['stats'] = loss_stats.detach().item()
 
             if 'recon' in ssl_set:
                 # Masked-feature self-reconstruction: hide half the observable nodes,
@@ -485,6 +633,36 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
                 loss_ssl = loss_ssl + w_triplet * loss_triplet
                 ssl_vals['triplet'] = loss_triplet.detach().item()
 
+            if 'anchor' in ssl_set:
+                # Anchor-diff (input-varying, global): sample K landmarks (resampled every
+                # `anchor_resample` epochs), BFS their normalized distances to all nodes.
+                # Each step, sample fresh node pairs (u, v); predict the SIGNED difference
+                # d(u,anchor) - d(v,anchor) from concat(z_u, z_v). Relational → input varies.
+                nnodes = c['num_nodes']
+                # normalized sparse adjacency for multi-source BFS (built once per cluster)
+                if 'bfs_adj' not in c0:
+                    ei_cpu = edge_index.cpu()
+                    vals = torch.ones(ei_cpu.size(1))
+                    c0['bfs_adj'] = torch.sparse_coo_tensor(ei_cpu, vals, (nnodes, nnodes)).coalesce()
+                # (re)sample landmarks + distances every `anchor_resample` epochs
+                if c0.get('anchor_epoch', -999) // anchor_resample != epoch // anchor_resample \
+                        or 'anchor_dist' not in c0:
+                    lm = torch.randperm(nnodes)[:num_anchors]
+                    c0['anchor_dist'] = _landmark_distances(
+                        c0['bfs_adj'].to(device), lm.to(device), nnodes, device)
+                    c0['anchor_epoch'] = epoch
+                adist = c0['anchor_dist'].to(device)        # [N, K] in [0,1]
+
+                B = min(nnodes, 4096)
+                u = torch.randint(0, nnodes, (B,), device=device)
+                v = torch.randint(0, nnodes, (B,), device=device)
+                a = torch.randint(0, num_anchors, (B,), device=device)   # which landmark
+                target = adist[u, a] - adist[v, a]           # signed distance difference
+                pred = anchor_head(torch.cat([z[u], z[v]], dim=1)).squeeze(-1)
+                loss_anchor = F.mse_loss(pred, target)
+                loss_ssl = loss_ssl + w_anchor * loss_anchor
+                ssl_vals['anchor'] = loss_anchor.detach().item()
+
             loss_total = w_edge * loss_edge + w_cls * loss_cls + w_con * loss_con + loss_ssl
 
             optimizer.zero_grad()
@@ -499,6 +677,9 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
             el['hist'] += ssl_vals['hist']
             el['path'] += ssl_vals['path']
             el['triplet'] += ssl_vals['triplet']
+            el['anchor'] += ssl_vals['anchor']
+            el['stats'] += ssl_vals['stats']
+            el['centroid'] += ssl_vals['centroid']
 
         n = len(cluster_cache)
         epoch_time = time.time() - epoch_start
@@ -508,19 +689,21 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
             'loss_con': el['con'] / n, 'loss_cls': el['cls'] / n,
             'loss_recon': el['recon'] / n, 'loss_hist': el['hist'] / n,
             'loss_path': el['path'] / n, 'loss_triplet': el['triplet'] / n,
+            'loss_anchor': el['anchor'] / n,
+            'loss_stats': el['stats'] / n, 'loss_centroid': el['centroid'] / n,
             'epoch_time_s': round(epoch_time, 2),
         }
 
         # Loss line every epoch; validation (expensive) every 5 epochs. Only show
         # the SSL objectives that are active.
         ssl_str = ' '.join(f'{name.capitalize()}: {el[name]/n:.4f}'
-                           for name in ('recon', 'hist', 'path', 'triplet') if name in ssl_set)
+                           for name in ('centroid', 'stats', 'recon', 'hist', 'path', 'triplet', 'anchor') if name in ssl_set)
         base = (f'  Epoch {epoch}/{epochs} | Total: {el["total"]/n:.3f} '
                 f'Edge: {el["edge"]/n:.3f} Con: {el["con"]/n:.3f} '
                 f'Cls: {el["cls"]/n:.3f}' + (f' {ssl_str}' if ssl_str else ''))
 
         if epoch % 5 == 0:
-            val_f1 = _eval(model, cluster_cache, labels, vali_id, device)
+            val_f1, _ = _eval(model, cluster_cache, labels, vali_id, device)
             log_entry['val_f1'] = val_f1
             print(f'{base} | Val F1: {val_f1:.4f} | {epoch_time:.1f}s')
             if val_f1 > best_val_f1:
@@ -548,10 +731,10 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
     if weights_path is not None:
         torch.save(model.state_dict(), weights_path)
 
-    test_f1 = _eval(model, cluster_cache, labels, test_id, device)
+    test_f1, test_acc = _eval(model, cluster_cache, labels, test_id, device)
     print(f'  Best Val F1: {best_val_f1:.4f} | Test F1: {test_f1:.4f}')
     print(f'  Total training time: {total_train_time:.1f}s ({total_train_time/60:.1f} min)')
-    return best_val_f1, test_f1
+    return best_val_f1, test_f1, test_acc
 
 
 def _eval(model, cluster_cache, labels, eval_id, device, cache_device='cpu'):
@@ -567,7 +750,8 @@ def _eval(model, cluster_cache, labels, eval_id, device, cache_device='cpu'):
             for local_i, g in enumerate(c0['global_indices'].tolist()):
                 if g in eval_id_set:
                     all_preds[g] = preds[local_i].item()
+    from sklearn.metrics import accuracy_score
     eval_list = [n for n in eval_id.cpu().tolist() if n in all_preds]
     y_pred = [all_preds[n] for n in eval_list]
     y_true = labels[torch.tensor(eval_list)].cpu().tolist()
-    return f1_score(y_true, y_pred, average='macro')
+    return f1_score(y_true, y_pred, average='macro'), accuracy_score(y_true, y_pred)

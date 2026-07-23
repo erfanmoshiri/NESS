@@ -1,0 +1,71 @@
+/home/erfan/MATE/venv/lib/python3.13/site-packages/outdated/__init__.py:36: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  from pkg_resources import parse_version
+/home/erfan/MATE/ogbn_benchmarks/data_loader.py:96: UserWarning: Sparse invariant checks are implicitly disabled. Memory errors (e.g. SEGFAULT) will occur when operating on a sparse tensor which violates the invariants, but checks incur performance overhead. To silence this warning, explicitly opt in or out. See `torch.sparse.check_sparse_tensor_invariants.__doc__` for guidance.  (Triggered internally at /pytorch/aten/src/ATen/Context.cpp:760.)
+  adj = torch.sparse_coo_tensor(edge_index, vals, (num_nodes, num_nodes)).coalesce()
+======================================================================
+  FP | ogbn-arxiv | MCAR @ 90%
+======================================================================
+[1/3] Loading ogbn-arxiv...
+  169,343 nodes | 128 dims | 40 classes
+[2/3] Simulating MCAR missingness...
+Simulating MCAR missingness at 90% rate...
+  MCAR: Uniform random selection
+  Observable: 16,935 (10.0%)
+  Masked: 152,408 (90.0%)
+  Observable: 16,935 | Val: 76,204 | Test: 76,204
+[3/3] Running FP...
+  Feature propagation (40 iterations)...
+    Propagation done in 0.4s
+  Training classifier for up to 400 epochs (patience=20)...
+  Epoch 5/400 | Loss: 2.1093 | Val F1: 0.1220 | 0.2s
+  Epoch 10/400 | Loss: 2.0317 | Val F1: 0.1460 | 0.2s
+  Epoch 15/400 | Loss: 2.0181 | Val F1: 0.1558 | 0.2s
+  Epoch 20/400 | Loss: 2.0030 | Val F1: 0.1593 | 0.1s
+  Epoch 25/400 | Loss: 1.9976 | Val F1: 0.1648 | 0.1s
+  Epoch 30/400 | Loss: 1.9589 | Val F1: 0.1936 | 0.1s
+  Epoch 35/400 | Loss: 1.9594 | Val F1: 0.1971 | 0.1s
+  Epoch 40/400 | Loss: 1.9702 | Val F1: 0.1487 | 0.2s
+  Epoch 45/400 | Loss: 1.9574 | Val F1: 0.1854 | 0.1s
+  Epoch 50/400 | Loss: 1.9811 | Val F1: 0.1660 | 0.1s
+  Epoch 55/400 | Loss: 1.9494 | Val F1: 0.1839 | 0.1s
+  Epoch 60/400 | Loss: 1.9547 | Val F1: 0.1908 | 0.1s
+  Epoch 65/400 | Loss: 1.9574 | Val F1: 0.1752 | 0.1s
+  Epoch 70/400 | Loss: 1.9544 | Val F1: 0.1856 | 0.2s
+  Epoch 75/400 | Loss: 1.9359 | Val F1: 0.1941 | 0.2s
+  Epoch 80/400 | Loss: 1.9307 | Val F1: 0.1704 | 0.1s
+  Epoch 85/400 | Loss: 1.9640 | Val F1: 0.1855 | 0.2s
+  Epoch 90/400 | Loss: 1.9728 | Val F1: 0.1747 | 0.1s
+  Epoch 95/400 | Loss: 1.9349 | Val F1: 0.1741 | 0.1s
+  Epoch 100/400 | Loss: 1.9342 | Val F1: 0.1995 | 0.1s
+  Epoch 105/400 | Loss: 1.9385 | Val F1: 0.1898 | 0.1s
+  Epoch 110/400 | Loss: 1.9411 | Val F1: 0.1842 | 0.1s
+  Epoch 115/400 | Loss: 1.9463 | Val F1: 0.1882 | 0.1s
+  Epoch 120/400 | Loss: 1.9190 | Val F1: 0.1956 | 0.1s
+  Epoch 125/400 | Loss: 1.9414 | Val F1: 0.1765 | 0.1s
+  Epoch 130/400 | Loss: 1.9471 | Val F1: 0.1911 | 0.1s
+  Epoch 135/400 | Loss: 1.9302 | Val F1: 0.1935 | 0.1s
+  Epoch 140/400 | Loss: 1.9437 | Val F1: 0.1899 | 0.1s
+  Epoch 145/400 | Loss: 1.9496 | Val F1: 0.1831 | 0.2s
+  Epoch 150/400 | Loss: 1.9354 | Val F1: 0.1844 | 0.1s
+  Epoch 155/400 | Loss: 1.9337 | Val F1: 0.1738 | 0.1s
+  Epoch 160/400 | Loss: 1.9506 | Val F1: 0.1770 | 0.1s
+  Epoch 165/400 | Loss: 1.9339 | Val F1: 0.1715 | 0.2s
+  Epoch 170/400 | Loss: 1.9194 | Val F1: 0.1691 | 0.1s
+  Epoch 175/400 | Loss: 1.9379 | Val F1: 0.1838 | 0.1s
+  Epoch 180/400 | Loss: 1.9332 | Val F1: 0.1803 | 0.2s
+  Epoch 185/400 | Loss: 1.9005 | Val F1: 0.1940 | 0.1s
+  Epoch 190/400 | Loss: 1.9026 | Val F1: 0.1855 | 0.1s
+  Epoch 195/400 | Loss: 1.9133 | Val F1: 0.1906 | 0.1s
+  Epoch 200/400 | Loss: 1.9122 | Val F1: 0.1994 | 0.1s
+  Early stopping at epoch 200
+  Best Val F1: 0.1995 | Test F1: 0.1985
+  Total training time: 48.2s (0.8 min)
+
+======================================================================
+  Val  Macro-F1: 0.1995
+  Test Macro-F1: 0.1985
+  Test Accuracy: 0.5314
+  Time: 49.1s
+======================================================================
+
+  Results saved to: results/FP_ogbn-arxiv_MCAR_0.9_20260722_012715

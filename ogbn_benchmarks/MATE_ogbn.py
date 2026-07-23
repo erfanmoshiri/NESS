@@ -296,7 +296,7 @@ def train_MATE_ogbn(graph, features, labels, observable_id, masked_id,
         }
 
         if epoch % 5 == 0:
-            val_f1 = _eval(model, cluster_cache, labels, vali_id, device, obs_mask_full)
+            val_f1, _ = _eval(model, cluster_cache, labels, vali_id, device, obs_mask_full)
             log_entry['val_f1'] = val_f1
             print(f'  Epoch {epoch}/{epochs} | '
                   f'Total: {epoch_losses["total"]/n:.3f} '
@@ -329,11 +329,11 @@ def train_MATE_ogbn(graph, features, labels, observable_id, masked_id,
     if weights_path is not None:
         torch.save(model.state_dict(), weights_path)
 
-    test_f1 = _eval(model, cluster_cache, labels, test_id, device, obs_mask_full)
+    test_f1, test_acc = _eval(model, cluster_cache, labels, test_id, device, obs_mask_full)
     print(f'  Best Val F1: {best_val_f1:.4f} | Test F1: {test_f1:.4f}')
     print(f'  Total training time: {total_train_time:.1f}s '
           f'({total_train_time/60:.1f} min) over {epoch} epochs')
-    return best_val_f1, test_f1
+    return best_val_f1, test_f1, test_acc
 
 
 def _eval(model, cluster_cache, labels, eval_id, device, obs_mask_full):
@@ -365,8 +365,9 @@ def _eval(model, cluster_cache, labels, eval_id, device, obs_mask_full):
                 if global_i in eval_id_set:
                     all_preds[global_i] = preds[local_i].item()
 
+    from sklearn.metrics import accuracy_score
     eval_list = eval_id.cpu().tolist()
     y_pred = [all_preds[n] for n in eval_list if n in all_preds]
     y_true = labels[eval_id[:len(y_pred)]].cpu().tolist()
 
-    return f1_score(y_true, y_pred, average='macro')
+    return f1_score(y_true, y_pred, average='macro'), accuracy_score(y_true, y_pred)
