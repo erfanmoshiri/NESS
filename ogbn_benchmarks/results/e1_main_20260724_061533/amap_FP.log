@@ -1,0 +1,86 @@
+/home/erfan/MATE/ogbn_benchmarks/../src/utils.py:239: UserWarning: torch.sparse.SparseTensor(indices, values, shape, *, device=) is deprecated.  Please use torch.sparse_coo_tensor(indices, values, shape, dtype=, device=). (Triggered internally at /pytorch/torch/csrc/utils/tensor_new.cpp:654.)
+  adj_norm = torch.sparse.FloatTensor(indices_norm, values_norm, torch.Size(adj_norm.shape))
+/home/erfan/MATE/ogbn_benchmarks/FP.py:56: UserWarning: Sparse invariant checks are implicitly disabled. Memory errors (e.g. SEGFAULT) will occur when operating on a sparse tensor which violates the invariants, but checks incur performance overhead. To silence this warning, explicitly opt in or out. See `torch.sparse.check_sparse_tensor_invariants.__doc__` for guidance.  (Triggered internally at /pytorch/aten/src/ATen/Context.cpp:760.)
+  A = torch.sparse_coo_tensor(idx, val, (num_nodes, num_nodes)).coalesce().to(device)
+======================================================================
+  FP | amap | MCAR @ 40% | lr=0.01
+======================================================================
+[1/3] Loading amap...
+loading dataset: amap
+  7,650 nodes | 745 dims | 8 classes
+[2/3] Simulating MCAR missingness...
+Simulating MCAR missingness at 40% rate...
+  MCAR: Uniform random selection
+  Observable: 4,590 (60.0%)
+  Masked: 3,060 (40.0%)
+  Observable: 4,590 | Val: 1,530 | Test: 1,530
+[3/3] Running FP...
+  Feature propagation (40 iterations)...
+    Propagation done in 0.1s
+  Training FP (full-batch) for up to 800 epochs (patience=20)...
+  Epoch 5/800 | Loss: 2.8733 | Val F1: 0.1257 | 0.00s
+  Epoch 10/800 | Loss: 2.0681 | Val F1: 0.0299 | 0.00s
+  Epoch 15/800 | Loss: 2.0239 | Val F1: 0.0501 | 0.00s
+  Epoch 20/800 | Loss: 1.8574 | Val F1: 0.1787 | 0.00s
+  Epoch 25/800 | Loss: 1.6720 | Val F1: 0.1580 | 0.00s
+  Epoch 30/800 | Loss: 1.4074 | Val F1: 0.2193 | 0.00s
+  Epoch 35/800 | Loss: 1.1642 | Val F1: 0.4248 | 0.00s
+  Epoch 40/800 | Loss: 0.7959 | Val F1: 0.6173 | 0.00s
+  Epoch 45/800 | Loss: 0.7065 | Val F1: 0.6885 | 0.00s
+  Epoch 50/800 | Loss: 0.5976 | Val F1: 0.7244 | 0.00s
+  Epoch 55/800 | Loss: 0.5429 | Val F1: 0.6739 | 0.00s
+  Epoch 60/800 | Loss: 0.4999 | Val F1: 0.8052 | 0.00s
+  Epoch 65/800 | Loss: 0.4552 | Val F1: 0.7944 | 0.00s
+  Epoch 70/800 | Loss: 0.4202 | Val F1: 0.8052 | 0.00s
+  Epoch 75/800 | Loss: 0.4172 | Val F1: 0.8295 | 0.00s
+  Epoch 80/800 | Loss: 0.3970 | Val F1: 0.8320 | 0.00s
+  Epoch 85/800 | Loss: 0.3960 | Val F1: 0.8584 | 0.00s
+  Epoch 90/800 | Loss: 0.3869 | Val F1: 0.8360 | 0.00s
+  Epoch 95/800 | Loss: 0.3711 | Val F1: 0.8526 | 0.00s
+  Epoch 100/800 | Loss: 0.3682 | Val F1: 0.8291 | 0.00s
+  Epoch 105/800 | Loss: 0.3571 | Val F1: 0.8743 | 0.00s
+  Epoch 110/800 | Loss: 0.3360 | Val F1: 0.8642 | 0.00s
+  Epoch 115/800 | Loss: 0.3336 | Val F1: 0.8376 | 0.00s
+  Epoch 120/800 | Loss: 0.3572 | Val F1: 0.8744 | 0.00s
+  Epoch 125/800 | Loss: 0.3271 | Val F1: 0.8846 | 0.00s
+  Epoch 130/800 | Loss: 0.3343 | Val F1: 0.8650 | 0.00s
+  Epoch 135/800 | Loss: 0.3257 | Val F1: 0.8816 | 0.00s
+  Epoch 140/800 | Loss: 0.3159 | Val F1: 0.8835 | 0.00s
+  Epoch 145/800 | Loss: 0.3270 | Val F1: 0.8786 | 0.00s
+  Epoch 150/800 | Loss: 0.2842 | Val F1: 0.8759 | 0.00s
+  Epoch 155/800 | Loss: 0.2973 | Val F1: 0.8874 | 0.00s
+  Epoch 160/800 | Loss: 0.3023 | Val F1: 0.8874 | 0.00s
+  Epoch 165/800 | Loss: 0.3293 | Val F1: 0.8887 | 0.00s
+  Epoch 170/800 | Loss: 0.3254 | Val F1: 0.8954 | 0.00s
+  Epoch 175/800 | Loss: 0.2895 | Val F1: 0.8892 | 0.00s
+  Epoch 180/800 | Loss: 0.2954 | Val F1: 0.8828 | 0.00s
+  Epoch 185/800 | Loss: 0.3002 | Val F1: 0.8838 | 0.00s
+  Epoch 190/800 | Loss: 0.3012 | Val F1: 0.8719 | 0.00s
+  Epoch 195/800 | Loss: 0.2803 | Val F1: 0.8848 | 0.00s
+  Epoch 200/800 | Loss: 0.3169 | Val F1: 0.8928 | 0.00s
+  Epoch 205/800 | Loss: 0.2783 | Val F1: 0.8866 | 0.00s
+  Epoch 210/800 | Loss: 0.2925 | Val F1: 0.8941 | 0.00s
+  Epoch 215/800 | Loss: 0.2808 | Val F1: 0.8913 | 0.00s
+  Epoch 220/800 | Loss: 3.6298 | Val F1: 0.3310 | 0.00s
+  Epoch 225/800 | Loss: 1.0571 | Val F1: 0.4144 | 0.00s
+  Epoch 230/800 | Loss: 1.1507 | Val F1: 0.4065 | 0.00s
+  Epoch 235/800 | Loss: 0.9337 | Val F1: 0.6329 | 0.00s
+  Epoch 240/800 | Loss: 0.6965 | Val F1: 0.7131 | 0.00s
+  Epoch 245/800 | Loss: 0.5817 | Val F1: 0.8270 | 0.00s
+  Epoch 250/800 | Loss: 0.4308 | Val F1: 0.8081 | 0.00s
+  Epoch 255/800 | Loss: 0.4425 | Val F1: 0.8693 | 0.00s
+  Epoch 260/800 | Loss: 0.4265 | Val F1: 0.8786 | 0.00s
+  Epoch 265/800 | Loss: 0.3726 | Val F1: 0.8673 | 0.00s
+  Epoch 270/800 | Loss: 0.3101 | Val F1: 0.8539 | 0.00s
+  Early stopping at epoch 270
+  Best Val F1: 0.8954 | Test F1: 0.8866 | Test Acc: 0.9065
+  Total training time: 1.4s
+
+======================================================================
+  Val  Macro-F1: 0.8954
+  Test Macro-F1: 0.8866
+  Test Accuracy: 0.9065
+  Time: 1.5s
+======================================================================
+
+  Results saved to: results/FP_amap_MCAR_0.4_20260724_062017

@@ -1,0 +1,22 @@
+=================================================
+Anchor-weight sweep | NESS | ogbn-arxiv | MCAR @ 0.8
+base: SAGE-3L-128, edge_mask, w_cls=3, dropout 0.3, 800 epochs
+Started: Fri Jul 24 02:20:15 AM UTC 2026
+=================================================
+  running: no_anchor ...
+  running: anchorcls_w1 ...
+  running: anchorcls_w3 ...
+  running: anchorcls_w5 ...
+  running: anchorcls_w8 ...
+
+=================================================
+RESULTS | anchor weight sweep | ogbn-arxiv @ 0.8 (base=no_anchor)
+=================================================
+CONFIG       VAL_F1     TEST_F1    TEST_ACC  
+no_anchor    0.4417     0.4367     0.6545    
+anchorcls_w1 0.4208     0.4228     0.6448    
+anchorcls_w3 0.4358     0.4350     0.6515    
+anchorcls_w5 0.4346     0.4307     0.6558    
+anchorcls_w8 0.4354     0.4343     0.6505    
+=================================================
+Finished: Fri Jul 24 03:17:05 AM UTC 2026

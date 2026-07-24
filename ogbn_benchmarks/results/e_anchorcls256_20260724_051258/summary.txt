@@ -1,0 +1,16 @@
+=================================================
+anchorcls @ width 256 | NESS | ogbn-arxiv | MCAR @ 0.8
+base: SAGE-3L, hidden=256, edge_mask, w_cls=3, 800 ep
+Started: Fri Jul 24 05:12:58 AM UTC 2026
+=================================================
+  running: no_ssl_256 ...
+  running: anchorcls_256 ...
+
+=================================================
+RESULTS | anchorcls @256 | ogbn-arxiv @ 0.8
+=================================================
+CONFIG           VAL_F1     TEST_F1    TEST_ACC  
+no_ssl_256       0.4672     0.4634     0.6659    
+anchorcls_256    0.4632     0.4585     0.6599    
+=================================================
+Finished: Fri Jul 24 05:39:43 AM UTC 2026

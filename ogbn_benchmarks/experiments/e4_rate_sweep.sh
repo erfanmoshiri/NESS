@@ -15,7 +15,7 @@ cd "$(dirname "$0")/.."   # -> ogbn_benchmarks/
 DATASETS=(${1:-ogbn-arxiv})
 RATES=(${2:-0.2 0.4 0.6 0.8 0.9})
 MISSINGNESS=MCAR
-EPOCHS=400
+EPOCHS=800       # match locked config (NESS still improves past 400)
 PATIENCE=20
 NUM_PARTS=20
 

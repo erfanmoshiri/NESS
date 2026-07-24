@@ -175,36 +175,42 @@ quantity** and differ on **exactly one axis**. The factor's causal effect = ΔF1
 ΔF1(flip-off), reported mean±std over ≥5 seeds (effects are ~0.01 F1, so single-seed is
 meaningless). A factor enters the rule only if flipping it reliably flips help↔no-help.
 
-*Candidate factors and their minimal pairs* (same quantity, flip one axis):
-- **F1 — input-varying vs fixed-input:** anchor-distance as pairwise signed-difference
-  (predict dist(u,L)−dist(v,L) from concat(z_u,z_v), input varies each step) vs per-node
-  regression (predict node u's distance-to-landmarks from z_u, fixed input). Held constant:
-  the quantity, landmarks, resample rate.
-- **F2 — stochastic vs static:** pairwise anchor with landmarks **resampled** every N epochs
-  vs **frozen** landmarks. Held constant: quantity, pairwise (both varying-input).
-- **F3 — label-driven vs label-free:** neighbor **label** histogram (`hist`) vs neighbor
-  **feature-cluster** histogram (same distributional target shape, no labels).
-- **F4 — redundant-with-aggregation vs not:** predict neighbor-mean (`centroid` — message
-  passing already computes it) vs multi-hop reachability (`path` — not computed). Both
-  structural, both fixed target. (Near-minimal; residual confound noted.)
+*Design principle:* **all three flips use the SAME underlying quantity — anchor-distance
+(distance from a node to a set of reference nodes)** — and flip exactly one axis. This keeps
+every pair a true minimal pair (no confounds from swapping the target). Factors that cannot
+be expressed as a same-quantity flip (e.g. the *label* factor) are handled separately, not
+forced into this design.
 
-*The 2×2 conjunction.* Using anchor-distance throughout, cross **input-variation ×
-redundancy** into four cells. Which cells help reveals whether the rule is an **AND-gate**
-("needs both") or additive — the data draws the boundary, not us.
+*The three factors (all on anchor-distance):*
+- **F1 — input-varying vs fixed-input:** pairwise signed-difference (predict
+  dist(u,R)−dist(v,R) from concat(z_u,z_v); input varies each step) vs per-node regression
+  (predict node u's distance-to-references from z_u; fixed input). Held constant: quantity,
+  reference set, resample rate.
+- **F2 — stochastic vs static:** pairwise, reference set **resampled** every N epochs vs
+  **frozen**. Held constant: quantity, pairwise form.
+- **F3 — global vs local reach:** distance to **far** reference nodes (K distant landmarks,
+  = current `anchor`) vs distance to **near** reference nodes (sampled within k-hop). Same
+  quantity and task; only the *reach* of the reference set flips. This directly tests E3's
+  "global > local" observation, and doubles as a redundancy test (local distance ≈ what a
+  2-layer encoder already computes → redundant; global distance is not).
 
-*Supporting signals (reported, not headline):* per objective, **probe R²**
-(predictability-from-structure — measured but demoted to a covariate, checked *within*
-matched pairs) and **loss-plateau epoch** (from the per-epoch loss already logged).
+*The label factor is out of scope for E8's clean design* — anchor-distance has no label
+variant, so a same-quantity flip is impossible. The advantage of `hist` (label-based) is
+reported as a standalone observation from **E3**, not as an E8 factor-flip.
 
-*The claim.* The general rule = whatever factors survive the flips: "a good SSL objective
-under missingness is one that is [surviving factors]." **Honest fallback:** if no factor
-cleanly flips the outcome beyond seed noise at our scale, we report that and offer the
-qualitative account (input-varying, non-redundant, stochastic, label-aware) as a *hypothesis*
-we tested rather than a proven law. This is stronger than leading with a guessed rule.
+*Supporting signals (reported, not headline):* per configuration, **probe R²**
+(predictability-from-structure — a covariate, checked *within* matched pairs) and
+**loss-plateau epoch** (from per-epoch loss already logged).
 
-*Implementation status:* F1-varying (`anchor`), F3-label (`hist`), F4 (`centroid`,`path`)
-already exist. Need: F1-fixed (per-node anchor regression head), F2 (`--freeze_landmarks`
-toggle), F3-featurecluster (target builder). ~3 small additions unlock the whole study.
+*The claim.* The general rule = whichever factors flip the outcome (help↔no-help), reported
+mean±std over ≥5 seeds (effects are ~0.01 F1, so single-seed is meaningless). **Honest
+fallback:** if no factor cleanly flips beyond seed noise at our scale, we report that and
+offer the qualitative account as a *tested hypothesis*, not a proven law.
+
+*Implementation status:* F1-varying + F3-global (`anchor`, pairwise, far landmarks) already
+exist. Need three small additions: (a) F1-fixed = per-node anchor regression head; (b) F2 =
+`--freeze_landmarks` toggle; (c) F3-local = sample near (k-hop) reference nodes instead of
+far landmarks.
 
 **E9 — Regime analysis (dense vs sparse features). [supporting]**
 Same R²/lift across binary-BoW (small) vs dense-embedding (arxiv) datasets. Explains why SSL helps on embedding graphs but little on binary BoW.

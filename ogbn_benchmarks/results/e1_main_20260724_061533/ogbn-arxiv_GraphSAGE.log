@@ -1,0 +1,73 @@
+/home/erfan/MATE/venv/lib/python3.13/site-packages/outdated/__init__.py:36: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  from pkg_resources import parse_version
+/home/erfan/MATE/ogbn_benchmarks/data_loader.py:96: UserWarning: Sparse invariant checks are implicitly disabled. Memory errors (e.g. SEGFAULT) will occur when operating on a sparse tensor which violates the invariants, but checks incur performance overhead. To silence this warning, explicitly opt in or out. See `torch.sparse.check_sparse_tensor_invariants.__doc__` for guidance.  (Triggered internally at /pytorch/aten/src/ATen/Context.cpp:760.)
+  adj = torch.sparse_coo_tensor(edge_index, vals, (num_nodes, num_nodes)).coalesce()
+======================================================================
+  GraphSAGE | ogbn-arxiv | MCAR @ 40% | lr=0.001
+======================================================================
+[1/3] Loading ogbn-arxiv...
+  169,343 nodes | 128 dims | 40 classes
+[2/3] Simulating MCAR missingness...
+Simulating MCAR missingness at 40% rate...
+  MCAR: Uniform random selection
+  Observable: 101,606 (60.0%)
+  Masked: 67,737 (40.0%)
+  Observable: 101,606 | Val: 33,868 | Test: 33,869
+[3/3] Running GraphSAGE...
+  Training GraphSAGE for up to 800 epochs (patience=20)...
+  Epoch 5/800 | Loss: 1.3625 | Val F1: 0.3268
+  Epoch 10/800 | Loss: 1.2914 | Val F1: 0.3404
+  Epoch 15/800 | Loss: 1.2599 | Val F1: 0.3504
+  Epoch 20/800 | Loss: 1.2489 | Val F1: 0.3544
+  Epoch 25/800 | Loss: 1.2399 | Val F1: 0.3571
+  Epoch 30/800 | Loss: 1.2314 | Val F1: 0.3570
+  Epoch 35/800 | Loss: 1.2263 | Val F1: 0.3522
+  Epoch 40/800 | Loss: 1.2260 | Val F1: 0.3606
+  Epoch 45/800 | Loss: 1.2192 | Val F1: 0.3594
+  Epoch 50/800 | Loss: 1.2162 | Val F1: 0.3611
+  Epoch 55/800 | Loss: 1.2152 | Val F1: 0.3551
+  Epoch 60/800 | Loss: 1.2182 | Val F1: 0.3627
+  Epoch 65/800 | Loss: 1.2179 | Val F1: 0.3601
+  Epoch 70/800 | Loss: 1.2135 | Val F1: 0.3603
+  Epoch 75/800 | Loss: 1.2161 | Val F1: 0.3592
+  Epoch 80/800 | Loss: 1.2083 | Val F1: 0.3561
+  Epoch 85/800 | Loss: 1.2105 | Val F1: 0.3571
+  Epoch 90/800 | Loss: 1.2106 | Val F1: 0.3636
+  Epoch 95/800 | Loss: 1.2092 | Val F1: 0.3669
+  Epoch 100/800 | Loss: 1.2104 | Val F1: 0.3635
+  Epoch 105/800 | Loss: 1.2051 | Val F1: 0.3672
+  Epoch 110/800 | Loss: 1.2084 | Val F1: 0.3683
+  Epoch 115/800 | Loss: 1.2100 | Val F1: 0.3588
+  Epoch 120/800 | Loss: 1.2082 | Val F1: 0.3644
+  Epoch 125/800 | Loss: 1.2056 | Val F1: 0.3731
+  Epoch 130/800 | Loss: 1.2060 | Val F1: 0.3597
+  Epoch 135/800 | Loss: 1.2046 | Val F1: 0.3626
+  Epoch 140/800 | Loss: 1.2069 | Val F1: 0.3665
+  Epoch 145/800 | Loss: 1.2048 | Val F1: 0.3622
+  Epoch 150/800 | Loss: 1.2038 | Val F1: 0.3729
+  Epoch 155/800 | Loss: 1.2023 | Val F1: 0.3545
+  Epoch 160/800 | Loss: 1.2061 | Val F1: 0.3676
+  Epoch 165/800 | Loss: 1.2031 | Val F1: 0.3593
+  Epoch 170/800 | Loss: 1.2011 | Val F1: 0.3566
+  Epoch 175/800 | Loss: 1.2031 | Val F1: 0.3702
+  Epoch 180/800 | Loss: 1.2026 | Val F1: 0.3582
+  Epoch 185/800 | Loss: 1.2021 | Val F1: 0.3578
+  Epoch 190/800 | Loss: 1.2008 | Val F1: 0.3702
+  Epoch 195/800 | Loss: 1.2014 | Val F1: 0.3694
+  Epoch 200/800 | Loss: 1.2016 | Val F1: 0.3599
+  Epoch 205/800 | Loss: 1.2007 | Val F1: 0.3588
+  Epoch 210/800 | Loss: 1.2027 | Val F1: 0.3692
+  Epoch 215/800 | Loss: 1.2014 | Val F1: 0.3575
+  Epoch 220/800 | Loss: 1.2038 | Val F1: 0.3594
+  Epoch 225/800 | Loss: 1.2028 | Val F1: 0.3563
+  Early stopping at epoch 225 (no improvement for 20 evals)
+  Best Val F1: 0.3731 | Test F1: 0.3715
+
+======================================================================
+  Val  Macro-F1: 0.3731
+  Test Macro-F1: 0.3715
+  Test Accuracy: 0.6389
+  Time: 291.4s
+======================================================================
+
+  Results saved to: results/GraphSAGE_ogbn-arxiv_MCAR_0.4_20260724_062142

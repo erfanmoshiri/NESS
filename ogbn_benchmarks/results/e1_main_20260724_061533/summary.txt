@@ -1,0 +1,15 @@
+=================================================
+E1 Main Comparison | MCAR @ 0.4 | epochs=800 patience=20
+Datasets: cora citeseer amac amap ogbn-arxiv
+Started: Fri Jul 24 06:15:33 AM UTC 2026
+=================================================
+
+>>> DATASET: cora  [06:15:33]
+
+>>> DATASET: citeseer  [06:16:00]
+
+>>> DATASET: amac  [06:16:28]
+
+>>> DATASET: amap  [06:20:09]
+
+>>> DATASET: ogbn-arxiv  [06:21:39]

@@ -1,0 +1,21 @@
+=================================================
+E8 Factor-Flip | NESS anchor | ogbn-arxiv | MCAR @ 0.8
+base: SAGE-128, edge_mask, anchor only, 800 epochs
+Started: Fri Jul 24 01:16:53 AM UTC 2026
+=================================================
+  running: anchor_base ...
+  running: F1_fixed ...
+  running: F2_frozen ...
+  running: F3_local ...
+
+=================================================
+E8 RESULTS | anchor factor-flips | ogbn-arxiv @ 0.8
+(effect of a factor = that row - anchor_base)
+=================================================
+CONFIG         VAL_F1     TEST_F1    TEST_ACC  
+anchor_base    0.4263     0.4273     0.6520    
+F1_fixed       0.4392     0.4384     0.6601    
+F2_frozen      0.4363     0.4333     0.6556    
+F3_local       0.4381     0.4369     0.6583    
+=================================================
+Finished: Fri Jul 24 01:59:36 AM UTC 2026

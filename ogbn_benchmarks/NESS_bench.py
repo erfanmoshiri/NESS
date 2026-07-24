@@ -132,7 +132,7 @@ def _within_khop_mask(edge_index, num_nodes, k=3):
     return reach  # [N, N] bool: within-k-hop
 
 
-def _landmark_distances(sp_adj, landmarks, num_nodes, device, max_hops=None):
+def _landmark_distances(sp_adj, landmarks, num_nodes, device, max_hops=None, raw_hops=False):
     """
     Multi-source BFS hop-distance from each landmark to all nodes -> [num_nodes, K],
     normalized by the longest finite shortest path (diameter proxy). Unreachable -> 1.0.
@@ -161,6 +161,10 @@ def _landmark_distances(sp_adj, landmarks, num_nodes, device, max_hops=None):
         frontier = newly.float()
     finite = dist[dist < INF]
     diameter = max(finite.max().item() if finite.numel() > 0 else 1.0, 1.0)
+    if raw_hops:
+        # integer hop distance; unreachable -> diameter+1 (caller usually buckets/clamps)
+        dist[dist >= INF] = diameter + 1.0
+        return dist  # [num_nodes, K] raw hops (float-valued integers)
     dist = dist.clamp(max=diameter) / diameter          # unreachable -> 1.0
     return dist  # [num_nodes, K] in [0,1]
 
@@ -290,10 +294,17 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
                encoder_layer='gcn',      # encoder conv type: gcn / sage / gat
                num_layers=2,             # encoder depth (message-passing layers)
                single_view=False,        # ablation: one view only (forces w_con=0; no two-view structure)
+               ssl_proj_head=False,       # SimCLR-style: SSL objectives act on proj(z), cls uses z directly
+               ssl_warmup=0,              # epochs of SSL-first: cls ramps 0->1 over these epochs (SSL shapes z first)
                ppr_on_raw=True,          # ppr view diffuses raw zero-filled feats (True) vs FP-prefilled (False)
                ssl_objective=('hist', 'path'), # list/tuple of objectives, e.g. ['recon','path']
                walk_len=2,               # hops for 'path' objective (short = tight, discriminative locality)
                num_anchors=16, anchor_resample=5,  # 'anchor' objective: K landmarks, resample every N epochs
+               # --- E8 factor-flip toggles (all on the anchor-distance quantity) ---
+               freeze_landmarks=False,   # F2: sample landmarks ONCE, never resample (static)
+               anchor_local=False,       # F3: use NEAR (k-hop-capped) reference distances vs far landmarks
+               anchor_fixed=False,       # F1: per-node regression (predict z_u's K distances) vs pairwise diff
+               anchor_local_hops=2,      # F3: hop cap when anchor_local=True
                w_edge=1.0, w_cls=1.0, w_con=1.0, w_recon=1.0, w_hist=1.0, w_path=1.0,
                w_triplet=1.0, w_anchor=1.0, w_stats=1.0, w_centroid=1.0,
                log_path=None, weights_path=None):
@@ -388,13 +399,42 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
         torch.nn.Linear(hidden, decoder_channels), torch.nn.ReLU(),
         torch.nn.Linear(decoder_channels, 1)
     ).to(device) if 'path' in ssl_set else None)
-    # Anchor-diff head: input = concat(z_u, z_v) -> predict signed anchor-distance diff.
-    # Input-varying/relational objective (fresh (u,v,anchor) each step), global structure.
-    anchor_head = (torch.nn.Sequential(
-        torch.nn.Linear(2 * hidden, decoder_channels), torch.nn.ReLU(),
-        torch.nn.Linear(decoder_channels, 1)
-    ).to(device) if 'anchor' in ssl_set else None)
+    # Anchor head. Two forms (F1 flip):
+    #   pairwise (default): concat(z_u, z_v) -> 1  (signed distance diff; input-varying)
+    #   fixed (anchor_fixed): z_u -> K            (per-node distance regression; fixed input)
+    if 'anchor' in ssl_set:
+        if anchor_fixed:
+            anchor_head = torch.nn.Sequential(
+                torch.nn.Linear(hidden, decoder_channels), torch.nn.ReLU(),
+                torch.nn.Linear(decoder_channels, num_anchors)
+            ).to(device)
+        else:
+            anchor_head = torch.nn.Sequential(
+                torch.nn.Linear(2 * hidden, decoder_channels), torch.nn.ReLU(),
+                torch.nn.Linear(decoder_channels, 1)
+            ).to(device)
+    else:
+        anchor_head = None
+    # anchorcls: per-node hop-bucket CLASSIFICATION of landmark distances (harder,
+    # class-relevant target — probe showed anchor-distance predicts class at F1~0.21).
+    # Predicts, for each of K landmarks, which hop-bucket the node falls in.
+    ANCHORCLS_BUCKETS = 6   # hop buckets: 0,1,2,3,4,>=5
+    anchorcls_head = (torch.nn.Sequential(
+        torch.nn.Linear(hidden, decoder_channels), torch.nn.ReLU(),
+        torch.nn.Linear(decoder_channels, num_anchors * ANCHORCLS_BUCKETS)
+    ).to(device) if 'anchorcls' in ssl_set else None)
+    # Optional SSL projection head (SimCLR-style): SSL objectives act on proj(z),
+    # classification/edge/contrastive keep using z directly. Decouples the pretext
+    # geometry from the representation used downstream. Off by default.
+    ssl_proj = (torch.nn.Sequential(
+        torch.nn.Linear(hidden, hidden), torch.nn.ReLU(),
+        torch.nn.Linear(hidden, hidden)
+    ).to(device) if ssl_proj_head else None)
     params = list(model.parameters())
+    if anchorcls_head is not None:
+        params += list(anchorcls_head.parameters())
+    if ssl_proj is not None:
+        params += list(ssl_proj.parameters())
     if hist_head is not None:
         params += list(hist_head.parameters())
     if path_head is not None:
@@ -481,7 +521,7 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
         epoch_start = time.time()
         el = {'total': 0.0, 'edge': 0.0, 'con': 0.0, 'cls': 0.0,
               'recon': 0.0, 'hist': 0.0, 'path': 0.0, 'triplet': 0.0, 'anchor': 0.0,
-              'stats': 0.0, 'centroid': 0.0}
+              'anchorcls': 0.0, 'stats': 0.0, 'centroid': 0.0}
         random.shuffle(cluster_cache)
 
         for c0 in cluster_cache:
@@ -541,21 +581,24 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
             loss_cls = F.cross_entropy(logits[obs], y[obs])
 
             # --- SSL objectives (any subset active via ssl_set) ---
+            # SSL objectives operate on z_ssl: proj(z) if a projection head is enabled,
+            # else z itself. Classification/edge/contrastive above always use z directly.
+            z_ssl = ssl_proj(z) if ssl_proj is not None else z
             loss_ssl = torch.tensor(0.0, device=device)
 
             ssl_vals = {'recon': 0.0, 'hist': 0.0, 'path': 0.0, 'triplet': 0.0, 'anchor': 0.0,
-                        'stats': 0.0, 'centroid': 0.0}  # per-step raw
+                        'anchorcls': 0.0, 'stats': 0.0, 'centroid': 0.0}  # per-step raw
 
             if 'centroid' in ssl_set:
                 # Fixed-input per-node: predict neighborhood centroid from z (redundant
                 # with aggregation — kept as a negative-result baseline for the ablation).
-                loss_centroid = F.mse_loss(model.residual_predictor(z), c['target_centroid'])
+                loss_centroid = F.mse_loss(model.residual_predictor(z_ssl), c['target_centroid'])
                 loss_ssl = loss_ssl + w_centroid * loss_centroid
                 ssl_vals['centroid'] = loss_centroid.detach().item()
 
             if 'stats' in ssl_set:
                 # Fixed-input per-node: predict neighborhood spread (std) from z.
-                loss_stats = F.mse_loss(model.stats_predictor(z), c['target_stats'])
+                loss_stats = F.mse_loss(model.stats_predictor(z_ssl), c['target_stats'])
                 loss_ssl = loss_ssl + w_stats * loss_stats
                 ssl_vals['stats'] = loss_stats.detach().item()
 
@@ -578,7 +621,7 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
             if 'hist' in ssl_set:
                 # Neighbor label-histogram (semi-supervised): predict class distribution
                 # of a node's observable k-hop neighbors. Observable nodes only.
-                pred_logp = F.log_softmax(hist_head(z[obs]), dim=1)
+                pred_logp = F.log_softmax(hist_head(z_ssl[obs]), dim=1)
                 target = c['target_hist'][obs]
                 valid = target.sum(dim=1) > 0
                 if valid.any():
@@ -620,8 +663,8 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
                 neg_ends = cand
 
                 # Dedicated path head (separate from edge decoder)
-                p_out = path_head(z[starts] * z[ends]).squeeze(-1)
-                n_out = path_head(z[starts] * z[neg_ends]).squeeze(-1)
+                p_out = path_head(z_ssl[starts] * z_ssl[ends]).squeeze(-1)
+                n_out = path_head(z_ssl[starts] * z_ssl[neg_ends]).squeeze(-1)
                 loss_path = (
                     F.binary_cross_entropy_with_logits(p_out, torch.ones_like(p_out)) +
                     F.binary_cross_entropy_with_logits(n_out, torch.zeros_like(n_out))
@@ -654,8 +697,8 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
                     far[bad] = torch.randint(0, nnodes, (int(bad.sum()),), device=device)
 
                 # Distances in embedding space; near should be closer than far by a margin
-                d_near = (z[anchor] - z[near]).pow(2).sum(dim=1)
-                d_far = (z[anchor] - z[far]).pow(2).sum(dim=1)
+                d_near = (z_ssl[anchor] - z_ssl[near]).pow(2).sum(dim=1)
+                d_far = (z_ssl[anchor] - z_ssl[far]).pow(2).sum(dim=1)
                 loss_triplet = F.relu(d_near - d_far + 1.0).mean()   # margin = 1.0
                 loss_ssl = loss_ssl + w_triplet * loss_triplet
                 ssl_vals['triplet'] = loss_triplet.detach().item()
@@ -671,26 +714,71 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
                     ei_cpu = edge_index.cpu()
                     vals = torch.ones(ei_cpu.size(1))
                     c0['bfs_adj'] = torch.sparse_coo_tensor(ei_cpu, vals, (nnodes, nnodes)).coalesce()
-                # (re)sample landmarks + distances every `anchor_resample` epochs
-                if c0.get('anchor_epoch', -999) // anchor_resample != epoch // anchor_resample \
-                        or 'anchor_dist' not in c0:
+                # (re)sample references + distances. F2: freeze_landmarks -> sample once,
+                # never resample (static). F3: anchor_local -> cap BFS at k hops so the
+                # distance signal is local-reach only (else full-reach = global).
+                hop_cap = anchor_local_hops if anchor_local else None
+                need_resample = (not freeze_landmarks) and \
+                    (c0.get('anchor_epoch', -999) // anchor_resample != epoch // anchor_resample)
+                if 'anchor_dist' not in c0 or need_resample:
                     lm = torch.randperm(nnodes)[:num_anchors]
                     c0['anchor_dist'] = _landmark_distances(
-                        c0['bfs_adj'].to(device), lm.to(device), nnodes, device)
+                        c0['bfs_adj'].to(device), lm.to(device), nnodes, device, max_hops=hop_cap)
                     c0['anchor_epoch'] = epoch
                 adist = c0['anchor_dist'].to(device)        # [N, K] in [0,1]
 
                 B = min(nnodes, 4096)
-                u = torch.randint(0, nnodes, (B,), device=device)
-                v = torch.randint(0, nnodes, (B,), device=device)
-                a = torch.randint(0, num_anchors, (B,), device=device)   # which landmark
-                target = adist[u, a] - adist[v, a]           # signed distance difference
-                pred = anchor_head(torch.cat([z[u], z[v]], dim=1)).squeeze(-1)
-                loss_anchor = F.mse_loss(pred, target)
+                if anchor_fixed:
+                    # F1 fixed-input: per-node regression — predict node u's K distances from z_u.
+                    u = torch.randint(0, nnodes, (B,), device=device)
+                    target = adist[u]                        # [B, K]
+                    pred = anchor_head(z_ssl[u])             # [B, K]
+                    loss_anchor = F.mse_loss(pred, target)
+                else:
+                    # F1 varying-input: pairwise signed distance difference from concat(z_u, z_v).
+                    u = torch.randint(0, nnodes, (B,), device=device)
+                    v = torch.randint(0, nnodes, (B,), device=device)
+                    a = torch.randint(0, num_anchors, (B,), device=device)   # which reference
+                    target = adist[u, a] - adist[v, a]       # signed distance difference
+                    pred = anchor_head(torch.cat([z_ssl[u], z_ssl[v]], dim=1)).squeeze(-1)
+                    loss_anchor = F.mse_loss(pred, target)
                 loss_ssl = loss_ssl + w_anchor * loss_anchor
                 ssl_vals['anchor'] = loss_anchor.detach().item()
 
-            loss_total = w_edge * loss_edge + w_cls * loss_cls + w_con * loss_con + loss_ssl
+            if 'anchorcls' in ssl_set:
+                # Per-node hop-bucket CLASSIFICATION of landmark distances. Fixed-input
+                # (target = node's own distances), but hard + class-relevant: predict, for
+                # each of K landmarks, which hop-bucket (0,1,2,3,4,>=5) the node falls in.
+                # Cross-entropy can't collapse like the MSE-of-differences anchor does.
+                nnodes = c['num_nodes']
+                if 'bfs_adj' not in c0:
+                    ei_cpu = edge_index.cpu()
+                    vals = torch.ones(ei_cpu.size(1))
+                    c0['bfs_adj'] = torch.sparse_coo_tensor(ei_cpu, vals, (nnodes, nnodes)).coalesce()
+                need_resample = (not freeze_landmarks) and \
+                    (c0.get('anchorcls_epoch', -999) // anchor_resample != epoch // anchor_resample)
+                if 'anchorcls_buckets' not in c0 or need_resample:
+                    lm = torch.randperm(nnodes)[:num_anchors]
+                    raw = _landmark_distances(c0['bfs_adj'].to(device), lm.to(device),
+                                              nnodes, device, raw_hops=True)     # [N, K] int hops
+                    c0['anchorcls_buckets'] = raw.clamp(max=ANCHORCLS_BUCKETS - 1).long()  # bucket >=5
+                    c0['anchorcls_epoch'] = epoch
+                buckets = c0['anchorcls_buckets'].to(device)     # [N, K] in {0..5}
+
+                B = min(nnodes, 4096)
+                u = torch.randint(0, nnodes, (B,), device=device)
+                logits = anchorcls_head(z_ssl[u]).view(B, num_anchors, ANCHORCLS_BUCKETS)
+                loss_anchorcls = F.cross_entropy(
+                    logits.reshape(B * num_anchors, ANCHORCLS_BUCKETS),
+                    buckets[u].reshape(B * num_anchors))
+                loss_ssl = loss_ssl + w_anchor * loss_anchorcls
+                ssl_vals['anchorcls'] = loss_anchorcls.detach().item()
+
+            # SSL warmup: for the first `ssl_warmup` epochs, classification is downweighted
+            # (ramps linearly 0 -> 1) so the SSL objective shapes the encoder FIRST, before
+            # classification dominates. After warmup, cls_scale = 1 (full w_cls).
+            cls_scale = min(1.0, epoch / ssl_warmup) if ssl_warmup > 0 else 1.0
+            loss_total = w_edge * loss_edge + cls_scale * w_cls * loss_cls + w_con * loss_con + loss_ssl
 
             optimizer.zero_grad()
             loss_total.backward()
@@ -705,6 +793,7 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
             el['path'] += ssl_vals['path']
             el['triplet'] += ssl_vals['triplet']
             el['anchor'] += ssl_vals['anchor']
+            el['anchorcls'] += ssl_vals['anchorcls']
             el['stats'] += ssl_vals['stats']
             el['centroid'] += ssl_vals['centroid']
 
@@ -716,7 +805,7 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
             'loss_con': el['con'] / n, 'loss_cls': el['cls'] / n,
             'loss_recon': el['recon'] / n, 'loss_hist': el['hist'] / n,
             'loss_path': el['path'] / n, 'loss_triplet': el['triplet'] / n,
-            'loss_anchor': el['anchor'] / n,
+            'loss_anchor': el['anchor'] / n, 'loss_anchorcls': el['anchorcls'] / n,
             'loss_stats': el['stats'] / n, 'loss_centroid': el['centroid'] / n,
             'epoch_time_s': round(epoch_time, 2),
         }
@@ -724,7 +813,7 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
         # Loss line every epoch; validation (expensive) every 5 epochs. Only show
         # the SSL objectives that are active.
         ssl_str = ' '.join(f'{name.capitalize()}: {el[name]/n:.4f}'
-                           for name in ('centroid', 'stats', 'recon', 'hist', 'path', 'triplet', 'anchor') if name in ssl_set)
+                           for name in ('centroid', 'stats', 'recon', 'hist', 'path', 'triplet', 'anchor', 'anchorcls') if name in ssl_set)
         base = (f'  Epoch {epoch}/{epochs} | Total: {el["total"]/n:.3f} '
                 f'Edge: {el["edge"]/n:.3f} Con: {el["con"]/n:.3f} '
                 f'Cls: {el["cls"]/n:.3f}' + (f' {ssl_str}' if ssl_str else ''))

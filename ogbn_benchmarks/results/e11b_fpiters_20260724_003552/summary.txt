@@ -1,0 +1,16 @@
+=================================================
+E11-b FP-iters sweep | NESS | ogbn-arxiv | MCAR @ 0.8
+base: SAGE-128, edge_mask, hist+path, 800 epochs | fp_iters: 10 20 (base=40 -> 0.3924)
+Started: Fri Jul 24 12:35:52 AM UTC 2026
+=================================================
+  running: fpiters_10 ...
+  running: fpiters_20 ...
+
+=================================================
+E11-b RESULTS | fp_iters | ogbn-arxiv @ 0.8 (base fp_iters=40 = 0.3924)
+=================================================
+CONFIG         VAL_F1     TEST_F1    TEST_ACC  
+fpiters_10     0.3837     0.3861     0.6323    
+fpiters_20     0.3886     0.3933     0.6368    
+=================================================
+Finished: Fri Jul 24 12:56:32 AM UTC 2026

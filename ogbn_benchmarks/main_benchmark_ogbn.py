@@ -65,7 +65,7 @@ def main():
     # GNN args (GraphSAGE / FP / PaGCN). Default 128: fair common width for all
     # models; NESS locked at SAGE+128 (E11). Pass --hidden 256 for headline numbers.
     parser.add_argument('--hidden', type=int, default=128)
-    parser.add_argument('--dropout', type=float, default=0.5)
+    parser.add_argument('--dropout', type=float, default=0.3)  # E11: 0.3 > 0.5 (locked)
     parser.add_argument('--lr', type=float, default=None,
                         help='Learning rate. If unset, a per-dataset default is used '
                              'uniformly for ALL models (see DATASET_LR).')
@@ -79,8 +79,8 @@ def main():
     parser.add_argument('--max_hops', type=int, default=10)
     # NESS SSL loss weights (rebalanced: old 100/50 starved classification)
     parser.add_argument('--w_edge', type=float, default=1.0)   # edge reconstruction
-    parser.add_argument('--w_cls', type=float, default=1.0)    # classification
-    parser.add_argument('--w_con', type=float, default=1.0)    # Barlow-Twins contrastive
+    parser.add_argument('--w_cls', type=float, default=3.0)    # classification (E11: upweighted, locked)
+    parser.add_argument('--w_con', type=float, default=0.5)    # Barlow-Twins contrastive (E11: reduced, locked)
     parser.add_argument('--w_recon', type=float, default=1.0)  # masked-feature recon SSL
     parser.add_argument('--w_hist', type=float, default=1.0)   # neighbor label-histogram SSL
     parser.add_argument('--w_path', type=float, default=1.0)   # multi-hop link-pred SSL
@@ -97,8 +97,9 @@ def main():
                         help="Resample anchor landmarks every N epochs (input-varying).")
     parser.add_argument('--ssl_objective', type=str, nargs='*', default=['hist', 'path'],
                         help="Space-separated SSL objectives for NESS: any of "
-                             "recon, hist, path, triplet, anchor, stats, centroid — "
-                             "e.g. --ssl_objective path anchor. Pass nothing for no SSL.")
+                             "recon, hist, path, triplet, anchor, anchorcls, stats, centroid — "
+                             "e.g. --ssl_objective path anchor. Pass nothing for no SSL. "
+                             "(anchorcls = per-node hop-bucket classification of landmark distances.)")
     parser.add_argument('--view2', type=str, default='edge_mask',
                         choices=['edge_mask', 'dropout', 'feat_mask', 'ppr',
                                  'prefill_contrast', 'deep'],
@@ -107,9 +108,28 @@ def main():
                         choices=['gcn', 'sage', 'gat'],
                         help="NESS encoder conv type. sage keeps a self-transform "
                              "(preserves per-node FP-prefilled signal); gcn blends self+neighbors.")
-    parser.add_argument('--num_layers', type=int, default=2,
-                        help="NESS encoder depth (message-passing layers). More layers = more "
-                             "smoothing/reach; 2 is the locked default.")
+    parser.add_argument('--num_layers', type=int, default=3,
+                        help="NESS encoder depth (message-passing layers). E11: 3 > 2 > 1 "
+                             "under high missingness; 3 is the locked default.")
+    # E8 factor-flip toggles (anchor-distance objective; see research plan E8)
+    parser.add_argument('--freeze_landmarks', action='store_true',
+                        help="E8-F2: sample anchor landmarks ONCE, never resample (static).")
+    parser.add_argument('--anchor_local', action='store_true',
+                        help="E8-F3: use NEAR (k-hop-capped) reference distances instead of "
+                             "far landmarks (tests global vs local reach).")
+    parser.add_argument('--anchor_fixed', action='store_true',
+                        help="E8-F1: per-node distance regression (fixed input z_u -> K dists) "
+                             "instead of pairwise signed-difference (varying input).")
+    parser.add_argument('--anchor_local_hops', type=int, default=2,
+                        help="E8-F3: hop cap when --anchor_local is set.")
+    parser.add_argument('--ssl_warmup', type=int, default=0,
+                        help="SSL-first warmup: classification weight ramps 0->1 over the first "
+                             "N epochs, so SSL shapes the encoder before classification dominates. "
+                             "0 = off (joint from start).")
+    parser.add_argument('--ssl_proj_head', action='store_true',
+                        help="SimCLR-style projection head: SSL objectives act on proj(z), "
+                             "while classification uses z directly (decouples pretext geometry "
+                             "from the downstream representation).")
     parser.add_argument('--single_view', action='store_true',
                         help="Ablation: build ONE contrastive view (z1==z2). Removes the "
                              "two-view structure and forces contrastive off. Tests whether "
@@ -126,6 +146,8 @@ def main():
                              'preloaded on GPU, needs full capacity).')
     parser.add_argument('--prefill', type=str, default='fp', choices=['zero', 'fp'],
                         help='NESS missing-node init: fp (Feature Propagation, default) or zero.')
+    parser.add_argument('--fp_iterations', type=int, default=40,
+                        help='Number of Feature-Propagation prefill iterations (NESS).')
     parser.add_argument('--ssl_hops', type=int, default=2,
                         help='Neighborhood size for NESS SSL targets (k-hop). >1 aggregates '
                              'over a k-hop ball — needed at high missingness.')
@@ -280,16 +302,23 @@ def main():
             num_parts=args.num_parts,
             cache_device=args.cache_device,
             prefill=args.prefill,
+            fp_iterations=args.fp_iterations,
             ssl_hops=args.ssl_hops,
             view2=args.view2,
             encoder_layer=args.encoder_layer,
             num_layers=args.num_layers,
             single_view=args.single_view,
+            ssl_proj_head=args.ssl_proj_head,
+            ssl_warmup=args.ssl_warmup,
             ppr_on_raw=not args.ppr_on_prefilled,
             ssl_objective=args.ssl_objective,
             walk_len=args.walk_len,
             num_anchors=args.num_anchors,
             anchor_resample=args.anchor_resample,
+            freeze_landmarks=args.freeze_landmarks,
+            anchor_local=args.anchor_local,
+            anchor_fixed=args.anchor_fixed,
+            anchor_local_hops=args.anchor_local_hops,
             w_edge=args.w_edge,
             w_cls=args.w_cls,
             w_con=args.w_con,

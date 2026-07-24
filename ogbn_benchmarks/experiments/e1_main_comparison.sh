@@ -14,7 +14,7 @@ cd "$(dirname "$0")/.."   # -> ogbn_benchmarks/
 MISS_RATE=${1:-0.4}
 DATASETS=(${2:-cora citeseer amac amap ogbn-arxiv})
 MISSINGNESS=MCAR
-EPOCHS=400       # ceiling; early stopping trims plateaued models
+EPOCHS=800       # match locked config (NESS still improves past 400)
 PATIENCE=20
 NUM_PARTS=20
 

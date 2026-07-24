@@ -1,0 +1,60 @@
+/home/erfan/MATE/ogbn_benchmarks/../src/utils.py:183: UserWarning: torch.sparse.SparseTensor(indices, values, shape, *, device=) is deprecated.  Please use torch.sparse_coo_tensor(indices, values, shape, dtype=, device=). (Triggered internally at /pytorch/torch/csrc/utils/tensor_new.cpp:654.)
+  adj_norm = torch.sparse.FloatTensor(indices_norm, values_norm, torch.Size(adj_norm.shape))
+/home/erfan/MATE/ogbn_benchmarks/PaGCN.py:87: UserWarning: Sparse invariant checks are implicitly disabled. Memory errors (e.g. SEGFAULT) will occur when operating on a sparse tensor which violates the invariants, but checks incur performance overhead. To silence this warning, explicitly opt in or out. See `torch.sparse.check_sparse_tensor_invariants.__doc__` for guidance.  (Triggered internally at /pytorch/aten/src/ATen/Context.cpp:760.)
+  return torch.sparse_coo_tensor(idx, val, (num_nodes, num_nodes)).coalesce().to(device)
+======================================================================
+  PaGCN | citeseer | MCAR @ 40% | lr=0.01
+======================================================================
+[1/3] Loading citeseer...
+loading dataset: citeseer
+  3,327 nodes | 3703 dims | 6 classes
+[2/3] Simulating MCAR missingness...
+Simulating MCAR missingness at 40% rate...
+  MCAR: Uniform random selection
+  Observable: 1,997 (60.0%)
+  Masked: 1,330 (40.0%)
+  Observable: 1,997 | Val: 665 | Test: 665
+[3/3] Running PaGCN...
+  Training PaGCN (full-batch) for up to 800 epochs (patience=20)...
+  Epoch 5/800 | Loss: 0.9622 | Val F1: 0.5917 | 0.00s
+  Epoch 10/800 | Loss: 0.3515 | Val F1: 0.6406 | 0.00s
+  Epoch 15/800 | Loss: 0.2129 | Val F1: 0.6356 | 0.00s
+  Epoch 20/800 | Loss: 0.1608 | Val F1: 0.6390 | 0.00s
+  Epoch 25/800 | Loss: 0.1312 | Val F1: 0.6348 | 0.00s
+  Epoch 30/800 | Loss: 0.1201 | Val F1: 0.6401 | 0.00s
+  Epoch 35/800 | Loss: 0.1056 | Val F1: 0.6413 | 0.00s
+  Epoch 40/800 | Loss: 0.1083 | Val F1: 0.6381 | 0.00s
+  Epoch 45/800 | Loss: 0.1039 | Val F1: 0.6421 | 0.00s
+  Epoch 50/800 | Loss: 0.0989 | Val F1: 0.6488 | 0.00s
+  Epoch 55/800 | Loss: 0.0915 | Val F1: 0.6448 | 0.00s
+  Epoch 60/800 | Loss: 0.0922 | Val F1: 0.6336 | 0.00s
+  Epoch 65/800 | Loss: 0.0981 | Val F1: 0.6415 | 0.00s
+  Epoch 70/800 | Loss: 0.0925 | Val F1: 0.6370 | 0.00s
+  Epoch 75/800 | Loss: 0.0860 | Val F1: 0.6409 | 0.00s
+  Epoch 80/800 | Loss: 0.0872 | Val F1: 0.6377 | 0.00s
+  Epoch 85/800 | Loss: 0.0855 | Val F1: 0.6427 | 0.00s
+  Epoch 90/800 | Loss: 0.0791 | Val F1: 0.6445 | 0.00s
+  Epoch 95/800 | Loss: 0.0800 | Val F1: 0.6419 | 0.00s
+  Epoch 100/800 | Loss: 0.0858 | Val F1: 0.6377 | 0.00s
+  Epoch 105/800 | Loss: 0.0850 | Val F1: 0.6332 | 0.00s
+  Epoch 110/800 | Loss: 0.0754 | Val F1: 0.6410 | 0.00s
+  Epoch 115/800 | Loss: 0.0775 | Val F1: 0.6432 | 0.00s
+  Epoch 120/800 | Loss: 0.0791 | Val F1: 0.6297 | 0.00s
+  Epoch 125/800 | Loss: 0.0717 | Val F1: 0.6322 | 0.00s
+  Epoch 130/800 | Loss: 0.0728 | Val F1: 0.6274 | 0.00s
+  Epoch 135/800 | Loss: 0.0814 | Val F1: 0.6303 | 0.00s
+  Epoch 140/800 | Loss: 0.0767 | Val F1: 0.6274 | 0.00s
+  Epoch 145/800 | Loss: 0.0736 | Val F1: 0.6256 | 0.00s
+  Epoch 150/800 | Loss: 0.0709 | Val F1: 0.6213 | 0.00s
+  Early stopping at epoch 150
+  Best Val F1: 0.6488 | Test F1: 0.6664 | Test Acc: 0.6857
+  Total training time: 0.8s
+
+======================================================================
+  Val  Macro-F1: 0.6488
+  Test Macro-F1: 0.6664
+  Test Accuracy: 0.6857
+  Time: 0.8s
+======================================================================
+
+  Results saved to: results/PaGCN_citeseer_MCAR_0.4_20260724_061611

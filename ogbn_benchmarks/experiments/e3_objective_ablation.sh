@@ -15,7 +15,7 @@ cd "$(dirname "$0")/.."   # -> ogbn_benchmarks/
 
 MISS_RATE=${1:-0.6}
 DATASET=${2:-ogbn-arxiv}
-VIEW2=${3:-ppr}   # E7 showed ppr is the best second view; judge objectives under it
+VIEW2=${3:-edge_mask}   # locked default (E7: edge_mask >= ppr, and simpler)
 MISSINGNESS=MCAR
 EPOCHS=800
 PATIENCE=20

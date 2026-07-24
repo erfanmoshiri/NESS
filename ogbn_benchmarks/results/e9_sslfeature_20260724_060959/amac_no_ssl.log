@@ -1,0 +1,392 @@
+/home/erfan/MATE/ogbn_benchmarks/../src/utils.py:211: UserWarning: torch.sparse.SparseTensor(indices, values, shape, *, device=) is deprecated.  Please use torch.sparse_coo_tensor(indices, values, shape, dtype=, device=). (Triggered internally at /pytorch/torch/csrc/utils/tensor_new.cpp:654.)
+  adj_norm = torch.sparse.FloatTensor(indices_norm, values_norm, torch.Size(adj_norm.shape))
+/home/erfan/MATE/ogbn_benchmarks/FP.py:56: UserWarning: Sparse invariant checks are implicitly disabled. Memory errors (e.g. SEGFAULT) will occur when operating on a sparse tensor which violates the invariants, but checks incur performance overhead. To silence this warning, explicitly opt in or out. See `torch.sparse.check_sparse_tensor_invariants.__doc__` for guidance.  (Triggered internally at /pytorch/aten/src/ATen/Context.cpp:760.)
+  A = torch.sparse_coo_tensor(idx, val, (num_nodes, num_nodes)).coalesce().to(device)
+======================================================================
+  NESS | amac | MCAR @ 80% | lr=0.001
+======================================================================
+[1/3] Loading amac...
+loading dataset: amac
+  13,752 nodes | 767 dims | 10 classes
+[2/3] Simulating MCAR missingness...
+Simulating MCAR missingness at 80% rate...
+  MCAR: Uniform random selection
+  Observable: 2,751 (20.0%)
+  Masked: 11,001 (80.0%)
+  Observable: 2,751 | Val: 5,500 | Test: 5,501
+[3/3] Running NESS...
+  Prefilling missing nodes via Feature Propagation (40 iters)...
+  Full-batch (single cluster, no partitioning)
+  Training NESS for up to 800 epochs (patience=20)...
+  Epoch 1/800 | Total: 8.130 Edge: 0.694 Con: 0.744 Cls: 2.354 | 0.5s
+  Epoch 2/800 | Total: 7.541 Edge: 0.697 Con: 0.672 Cls: 2.169 | 0.2s
+  Epoch 3/800 | Total: 6.826 Edge: 0.695 Con: 0.617 Cls: 1.941 | 0.2s
+  Epoch 4/800 | Total: 6.939 Edge: 0.828 Con: 0.557 Cls: 1.944 | 0.2s
+  Epoch 5/800 | Total: 6.871 Edge: 0.853 Con: 0.541 Cls: 1.916 | Val F1: 0.0567 | 0.2s
+  Epoch 6/800 | Total: 6.612 Edge: 0.695 Con: 0.523 Cls: 1.885 | 0.2s
+  Epoch 7/800 | Total: 6.479 Edge: 0.679 Con: 0.508 Cls: 1.849 | 0.2s
+  Epoch 8/800 | Total: 6.500 Edge: 0.668 Con: 0.488 Cls: 1.863 | 0.2s
+  Epoch 9/800 | Total: 6.362 Edge: 0.660 Con: 0.467 Cls: 1.823 | 0.2s
+  Epoch 10/800 | Total: 6.294 Edge: 0.653 Con: 0.437 Cls: 1.808 | Val F1: 0.0801 | 0.2s
+  Epoch 11/800 | Total: 6.153 Edge: 0.642 Con: 0.399 Cls: 1.771 | 0.2s
+  Epoch 12/800 | Total: 6.007 Edge: 0.631 Con: 0.357 Cls: 1.733 | 0.2s
+  Epoch 13/800 | Total: 5.884 Edge: 0.626 Con: 0.333 Cls: 1.697 | 0.2s
+  Epoch 14/800 | Total: 5.737 Edge: 0.620 Con: 0.303 Cls: 1.655 | 0.2s
+  Epoch 15/800 | Total: 5.590 Edge: 0.607 Con: 0.283 Cls: 1.614 | Val F1: 0.2152 | 0.2s
+  Epoch 16/800 | Total: 5.452 Edge: 0.604 Con: 0.275 Cls: 1.570 | 0.2s
+  Epoch 17/800 | Total: 5.281 Edge: 0.584 Con: 0.259 Cls: 1.522 | 0.2s
+  Epoch 18/800 | Total: 5.110 Edge: 0.567 Con: 0.251 Cls: 1.472 | 0.2s
+  Epoch 19/800 | Total: 4.999 Edge: 0.547 Con: 0.243 Cls: 1.443 | 0.1s
+  Epoch 20/800 | Total: 4.933 Edge: 0.555 Con: 0.236 Cls: 1.420 | Val F1: 0.1579 | 0.2s
+  Epoch 21/800 | Total: 4.970 Edge: 0.522 Con: 0.233 Cls: 1.444 | 0.2s
+  Epoch 22/800 | Total: 4.764 Edge: 0.541 Con: 0.225 Cls: 1.370 | 0.1s
+  Epoch 23/800 | Total: 4.552 Edge: 0.506 Con: 0.221 Cls: 1.312 | 0.1s
+  Epoch 24/800 | Total: 4.584 Edge: 0.508 Con: 0.215 Cls: 1.323 | 0.1s
+  Epoch 25/800 | Total: 4.328 Edge: 0.492 Con: 0.205 Cls: 1.244 | Val F1: 0.2595 | 0.1s
+  Epoch 26/800 | Total: 4.272 Edge: 0.490 Con: 0.196 Cls: 1.228 | 0.1s
+  Epoch 27/800 | Total: 4.158 Edge: 0.499 Con: 0.196 Cls: 1.187 | 0.1s
+  Epoch 28/800 | Total: 3.923 Edge: 0.480 Con: 0.189 Cls: 1.116 | 0.1s
+  Epoch 29/800 | Total: 3.874 Edge: 0.481 Con: 0.182 Cls: 1.101 | 0.1s
+  Epoch 30/800 | Total: 3.676 Edge: 0.457 Con: 0.181 Cls: 1.043 | Val F1: 0.3563 | 0.2s
+  Epoch 31/800 | Total: 3.512 Edge: 0.454 Con: 0.179 Cls: 0.989 | 0.2s
+  Epoch 32/800 | Total: 3.383 Edge: 0.450 Con: 0.173 Cls: 0.949 | 0.2s
+  Epoch 33/800 | Total: 3.262 Edge: 0.449 Con: 0.170 Cls: 0.909 | 0.2s
+  Epoch 34/800 | Total: 3.214 Edge: 0.451 Con: 0.171 Cls: 0.892 | 0.2s
+  Epoch 35/800 | Total: 3.100 Edge: 0.442 Con: 0.166 Cls: 0.858 | Val F1: 0.4505 | 0.2s
+  Epoch 36/800 | Total: 3.009 Edge: 0.444 Con: 0.163 Cls: 0.828 | 0.2s
+  Epoch 37/800 | Total: 2.913 Edge: 0.440 Con: 0.162 Cls: 0.797 | 0.2s
+  Epoch 38/800 | Total: 2.887 Edge: 0.437 Con: 0.158 Cls: 0.790 | 0.1s
+  Epoch 39/800 | Total: 2.891 Edge: 0.438 Con: 0.155 Cls: 0.792 | 0.2s
+  Epoch 40/800 | Total: 2.882 Edge: 0.445 Con: 0.154 Cls: 0.787 | Val F1: 0.5002 | 0.2s
+  Epoch 41/800 | Total: 3.105 Edge: 0.441 Con: 0.150 Cls: 0.863 | 0.2s
+  Epoch 42/800 | Total: 2.728 Edge: 0.426 Con: 0.146 Cls: 0.743 | 0.2s
+  Epoch 43/800 | Total: 3.092 Edge: 0.435 Con: 0.146 Cls: 0.861 | 0.2s
+  Epoch 44/800 | Total: 2.764 Edge: 0.413 Con: 0.143 Cls: 0.760 | 0.1s
+  Epoch 45/800 | Total: 2.926 Edge: 0.427 Con: 0.141 Cls: 0.809 | Val F1: 0.6342 | 0.1s
+  Epoch 46/800 | Total: 2.624 Edge: 0.405 Con: 0.140 Cls: 0.717 | 0.2s
+  Epoch 47/800 | Total: 2.536 Edge: 0.401 Con: 0.139 Cls: 0.689 | 0.2s
+  Epoch 48/800 | Total: 2.668 Edge: 0.406 Con: 0.139 Cls: 0.731 | 0.1s
+  Epoch 49/800 | Total: 2.414 Edge: 0.394 Con: 0.137 Cls: 0.651 | 0.2s
+  Epoch 50/800 | Total: 2.503 Edge: 0.409 Con: 0.133 Cls: 0.676 | Val F1: 0.6905 | 0.1s
+  Epoch 51/800 | Total: 2.430 Edge: 0.395 Con: 0.132 Cls: 0.656 | 0.2s
+  Epoch 52/800 | Total: 2.308 Edge: 0.381 Con: 0.132 Cls: 0.621 | 0.2s
+  Epoch 53/800 | Total: 2.416 Edge: 0.384 Con: 0.130 Cls: 0.656 | 0.1s
+  Epoch 54/800 | Total: 2.288 Edge: 0.375 Con: 0.129 Cls: 0.616 | 0.2s
+  Epoch 55/800 | Total: 2.186 Edge: 0.369 Con: 0.127 Cls: 0.584 | Val F1: 0.7440 | 0.2s
+  Epoch 56/800 | Total: 2.345 Edge: 0.381 Con: 0.127 Cls: 0.633 | 0.2s
+  Epoch 57/800 | Total: 2.180 Edge: 0.368 Con: 0.126 Cls: 0.583 | 0.2s
+  Epoch 58/800 | Total: 2.097 Edge: 0.363 Con: 0.125 Cls: 0.557 | 0.2s
+  Epoch 59/800 | Total: 2.200 Edge: 0.368 Con: 0.124 Cls: 0.590 | 0.2s
+  Epoch 60/800 | Total: 2.172 Edge: 0.366 Con: 0.123 Cls: 0.581 | Val F1: 0.7444 | 0.2s
+  Epoch 61/800 | Total: 2.007 Edge: 0.355 Con: 0.120 Cls: 0.531 | 0.2s
+  Epoch 62/800 | Total: 2.093 Edge: 0.359 Con: 0.120 Cls: 0.558 | 0.2s
+  Epoch 63/800 | Total: 2.011 Edge: 0.347 Con: 0.119 Cls: 0.535 | 0.2s
+  Epoch 64/800 | Total: 1.991 Edge: 0.348 Con: 0.118 Cls: 0.528 | 0.2s
+  Epoch 65/800 | Total: 2.007 Edge: 0.346 Con: 0.118 Cls: 0.534 | Val F1: 0.7664 | 0.2s
+  Epoch 66/800 | Total: 1.916 Edge: 0.340 Con: 0.117 Cls: 0.506 | 0.2s
+  Epoch 67/800 | Total: 1.913 Edge: 0.343 Con: 0.116 Cls: 0.504 | 0.2s
+  Epoch 68/800 | Total: 1.914 Edge: 0.344 Con: 0.115 Cls: 0.504 | 0.2s
+  Epoch 69/800 | Total: 1.914 Edge: 0.339 Con: 0.114 Cls: 0.506 | 0.2s
+  Epoch 70/800 | Total: 1.932 Edge: 0.340 Con: 0.114 Cls: 0.512 | Val F1: 0.7592 | 0.2s
+  Epoch 71/800 | Total: 1.827 Edge: 0.334 Con: 0.115 Cls: 0.479 | 0.2s
+  Epoch 72/800 | Total: 1.814 Edge: 0.334 Con: 0.113 Cls: 0.474 | 0.2s
+  Epoch 73/800 | Total: 1.811 Edge: 0.332 Con: 0.113 Cls: 0.474 | 0.2s
+  Epoch 74/800 | Total: 1.730 Edge: 0.330 Con: 0.113 Cls: 0.448 | 0.2s
+  Epoch 75/800 | Total: 1.745 Edge: 0.333 Con: 0.112 Cls: 0.452 | Val F1: 0.7690 | 0.2s
+  Epoch 76/800 | Total: 1.721 Edge: 0.331 Con: 0.111 Cls: 0.445 | 0.2s
+  Epoch 77/800 | Total: 1.737 Edge: 0.327 Con: 0.110 Cls: 0.452 | 0.2s
+  Epoch 78/800 | Total: 1.777 Edge: 0.330 Con: 0.110 Cls: 0.464 | 0.1s
+  Epoch 79/800 | Total: 1.667 Edge: 0.325 Con: 0.111 Cls: 0.429 | 0.1s
+  Epoch 80/800 | Total: 1.703 Edge: 0.323 Con: 0.110 Cls: 0.442 | Val F1: 0.8036 | 0.1s
+  Epoch 81/800 | Total: 1.712 Edge: 0.323 Con: 0.111 Cls: 0.445 | 0.2s
+  Epoch 82/800 | Total: 1.669 Edge: 0.323 Con: 0.109 Cls: 0.431 | 0.2s
+  Epoch 83/800 | Total: 1.635 Edge: 0.325 Con: 0.109 Cls: 0.418 | 0.2s
+  Epoch 84/800 | Total: 1.783 Edge: 0.324 Con: 0.108 Cls: 0.468 | 0.2s
+  Epoch 85/800 | Total: 1.710 Edge: 0.321 Con: 0.108 Cls: 0.445 | Val F1: 0.7745 | 0.2s
+  Epoch 86/800 | Total: 1.584 Edge: 0.318 Con: 0.108 Cls: 0.404 | 0.1s
+  Epoch 87/800 | Total: 1.735 Edge: 0.325 Con: 0.109 Cls: 0.452 | 0.2s
+  Epoch 88/800 | Total: 1.657 Edge: 0.318 Con: 0.106 Cls: 0.429 | 0.2s
+  Epoch 89/800 | Total: 1.592 Edge: 0.318 Con: 0.106 Cls: 0.407 | 0.2s
+  Epoch 90/800 | Total: 1.607 Edge: 0.319 Con: 0.106 Cls: 0.412 | Val F1: 0.7827 | 0.2s
+  Epoch 91/800 | Total: 1.554 Edge: 0.316 Con: 0.107 Cls: 0.395 | 0.2s
+  Epoch 92/800 | Total: 1.645 Edge: 0.313 Con: 0.107 Cls: 0.426 | 0.2s
+  Epoch 93/800 | Total: 1.506 Edge: 0.313 Con: 0.108 Cls: 0.380 | 0.2s
+  Epoch 94/800 | Total: 1.599 Edge: 0.323 Con: 0.106 Cls: 0.408 | 0.1s
+  Epoch 95/800 | Total: 1.507 Edge: 0.313 Con: 0.105 Cls: 0.380 | Val F1: 0.7621 | 0.2s
+  Epoch 96/800 | Total: 1.547 Edge: 0.316 Con: 0.105 Cls: 0.393 | 0.1s
+  Epoch 97/800 | Total: 1.460 Edge: 0.311 Con: 0.105 Cls: 0.365 | 0.1s
+  Epoch 98/800 | Total: 1.520 Edge: 0.310 Con: 0.105 Cls: 0.386 | 0.1s
+  Epoch 99/800 | Total: 1.455 Edge: 0.309 Con: 0.104 Cls: 0.365 | 0.1s
+  Epoch 100/800 | Total: 1.469 Edge: 0.309 Con: 0.104 Cls: 0.370 | Val F1: 0.8234 | 0.1s
+  Epoch 101/800 | Total: 1.441 Edge: 0.308 Con: 0.103 Cls: 0.361 | 0.2s
+  Epoch 102/800 | Total: 1.426 Edge: 0.307 Con: 0.103 Cls: 0.356 | 0.1s
+  Epoch 103/800 | Total: 1.418 Edge: 0.307 Con: 0.104 Cls: 0.353 | 0.1s
+  Epoch 104/800 | Total: 1.427 Edge: 0.307 Con: 0.104 Cls: 0.356 | 0.1s
+  Epoch 105/800 | Total: 1.405 Edge: 0.301 Con: 0.103 Cls: 0.351 | Val F1: 0.7788 | 0.2s
+  Epoch 106/800 | Total: 1.382 Edge: 0.305 Con: 0.102 Cls: 0.342 | 0.1s
+  Epoch 107/800 | Total: 1.411 Edge: 0.306 Con: 0.102 Cls: 0.351 | 0.1s
+  Epoch 108/800 | Total: 1.339 Edge: 0.305 Con: 0.103 Cls: 0.327 | 0.1s
+  Epoch 109/800 | Total: 1.403 Edge: 0.306 Con: 0.103 Cls: 0.349 | 0.1s
+  Epoch 110/800 | Total: 1.344 Edge: 0.302 Con: 0.102 Cls: 0.330 | Val F1: 0.7781 | 0.1s
+  Epoch 111/800 | Total: 1.379 Edge: 0.305 Con: 0.101 Cls: 0.341 | 0.1s
+  Epoch 112/800 | Total: 1.307 Edge: 0.303 Con: 0.101 Cls: 0.318 | 0.1s
+  Epoch 113/800 | Total: 1.401 Edge: 0.304 Con: 0.102 Cls: 0.349 | 0.1s
+  Epoch 114/800 | Total: 1.334 Edge: 0.302 Con: 0.102 Cls: 0.327 | 0.1s
+  Epoch 115/800 | Total: 1.330 Edge: 0.300 Con: 0.101 Cls: 0.326 | Val F1: 0.8463 | 0.2s
+  Epoch 116/800 | Total: 1.334 Edge: 0.296 Con: 0.100 Cls: 0.329 | 0.1s
+  Epoch 117/800 | Total: 1.334 Edge: 0.299 Con: 0.100 Cls: 0.328 | 0.1s
+  Epoch 118/800 | Total: 1.283 Edge: 0.301 Con: 0.100 Cls: 0.311 | 0.2s
+  Epoch 119/800 | Total: 1.280 Edge: 0.301 Con: 0.102 Cls: 0.309 | 0.1s
+  Epoch 120/800 | Total: 1.280 Edge: 0.296 Con: 0.099 Cls: 0.311 | Val F1: 0.7791 | 0.1s
+  Epoch 121/800 | Total: 1.280 Edge: 0.300 Con: 0.099 Cls: 0.310 | 0.2s
+  Epoch 122/800 | Total: 1.276 Edge: 0.296 Con: 0.099 Cls: 0.310 | 0.1s
+  Epoch 123/800 | Total: 1.226 Edge: 0.297 Con: 0.098 Cls: 0.293 | 0.1s
+  Epoch 124/800 | Total: 1.316 Edge: 0.296 Con: 0.099 Cls: 0.324 | 0.1s
+  Epoch 125/800 | Total: 1.276 Edge: 0.295 Con: 0.098 Cls: 0.311 | Val F1: 0.8304 | 0.1s
+  Epoch 126/800 | Total: 1.203 Edge: 0.291 Con: 0.097 Cls: 0.288 | 0.1s
+  Epoch 127/800 | Total: 1.229 Edge: 0.292 Con: 0.098 Cls: 0.296 | 0.2s
+  Epoch 128/800 | Total: 1.185 Edge: 0.295 Con: 0.099 Cls: 0.280 | 0.1s
+  Epoch 129/800 | Total: 1.187 Edge: 0.294 Con: 0.099 Cls: 0.281 | 0.2s
+  Epoch 130/800 | Total: 1.187 Edge: 0.291 Con: 0.097 Cls: 0.282 | Val F1: 0.7991 | 0.1s
+  Epoch 131/800 | Total: 1.143 Edge: 0.287 Con: 0.097 Cls: 0.269 | 0.1s
+  Epoch 132/800 | Total: 1.170 Edge: 0.294 Con: 0.097 Cls: 0.276 | 0.1s
+  Epoch 133/800 | Total: 1.153 Edge: 0.294 Con: 0.097 Cls: 0.270 | 0.1s
+  Epoch 134/800 | Total: 1.163 Edge: 0.291 Con: 0.097 Cls: 0.275 | 0.2s
+  Epoch 135/800 | Total: 1.123 Edge: 0.287 Con: 0.097 Cls: 0.262 | Val F1: 0.8562 | 0.1s
+  Epoch 136/800 | Total: 1.155 Edge: 0.289 Con: 0.097 Cls: 0.273 | 0.1s
+  Epoch 137/800 | Total: 1.138 Edge: 0.290 Con: 0.096 Cls: 0.267 | 0.1s
+  Epoch 138/800 | Total: 1.097 Edge: 0.287 Con: 0.097 Cls: 0.254 | 0.1s
+  Epoch 139/800 | Total: 1.099 Edge: 0.286 Con: 0.097 Cls: 0.255 | 0.1s
+  Epoch 140/800 | Total: 1.078 Edge: 0.287 Con: 0.096 Cls: 0.248 | Val F1: 0.8211 | 0.1s
+  Epoch 141/800 | Total: 1.113 Edge: 0.283 Con: 0.096 Cls: 0.261 | 0.1s
+  Epoch 142/800 | Total: 1.076 Edge: 0.286 Con: 0.096 Cls: 0.247 | 0.1s
+  Epoch 143/800 | Total: 1.118 Edge: 0.285 Con: 0.096 Cls: 0.262 | 0.1s
+  Epoch 144/800 | Total: 1.112 Edge: 0.286 Con: 0.095 Cls: 0.259 | 0.1s
+  Epoch 145/800 | Total: 1.084 Edge: 0.284 Con: 0.096 Cls: 0.251 | Val F1: 0.8116 | 0.2s
+  Epoch 146/800 | Total: 1.061 Edge: 0.285 Con: 0.096 Cls: 0.243 | 0.1s
+  Epoch 147/800 | Total: 1.075 Edge: 0.286 Con: 0.096 Cls: 0.247 | 0.2s
+  Epoch 148/800 | Total: 1.069 Edge: 0.283 Con: 0.095 Cls: 0.246 | 0.1s
+  Epoch 149/800 | Total: 1.042 Edge: 0.286 Con: 0.094 Cls: 0.236 | 0.1s
+  Epoch 150/800 | Total: 1.089 Edge: 0.285 Con: 0.095 Cls: 0.252 | Val F1: 0.8635 | 0.1s
+  Epoch 151/800 | Total: 1.091 Edge: 0.284 Con: 0.096 Cls: 0.253 | 0.2s
+  Epoch 152/800 | Total: 1.078 Edge: 0.281 Con: 0.094 Cls: 0.250 | 0.1s
+  Epoch 153/800 | Total: 1.100 Edge: 0.286 Con: 0.094 Cls: 0.256 | 0.1s
+  Epoch 154/800 | Total: 1.132 Edge: 0.284 Con: 0.094 Cls: 0.267 | 0.1s
+  Epoch 155/800 | Total: 1.052 Edge: 0.282 Con: 0.094 Cls: 0.241 | Val F1: 0.8041 | 0.1s
+  Epoch 156/800 | Total: 1.024 Edge: 0.284 Con: 0.094 Cls: 0.231 | 0.2s
+  Epoch 157/800 | Total: 1.063 Edge: 0.281 Con: 0.094 Cls: 0.245 | 0.1s
+  Epoch 158/800 | Total: 1.023 Edge: 0.282 Con: 0.093 Cls: 0.231 | 0.1s
+  Epoch 159/800 | Total: 0.989 Edge: 0.282 Con: 0.094 Cls: 0.220 | 0.2s
+  Epoch 160/800 | Total: 1.045 Edge: 0.281 Con: 0.095 Cls: 0.239 | Val F1: 0.8318 | 0.1s
+  Epoch 161/800 | Total: 1.013 Edge: 0.281 Con: 0.093 Cls: 0.228 | 0.1s
+  Epoch 162/800 | Total: 1.025 Edge: 0.282 Con: 0.093 Cls: 0.232 | 0.2s
+  Epoch 163/800 | Total: 1.023 Edge: 0.281 Con: 0.093 Cls: 0.232 | 0.2s
+  Epoch 164/800 | Total: 0.947 Edge: 0.277 Con: 0.093 Cls: 0.208 | 0.2s
+  Epoch 165/800 | Total: 0.983 Edge: 0.283 Con: 0.093 Cls: 0.218 | Val F1: 0.8423 | 0.1s
+  Epoch 166/800 | Total: 0.954 Edge: 0.280 Con: 0.093 Cls: 0.209 | 0.1s
+  Epoch 167/800 | Total: 1.004 Edge: 0.289 Con: 0.092 Cls: 0.223 | 0.1s
+  Epoch 168/800 | Total: 0.949 Edge: 0.278 Con: 0.092 Cls: 0.208 | 0.1s
+  Epoch 169/800 | Total: 0.946 Edge: 0.286 Con: 0.093 Cls: 0.205 | 0.1s
+  Epoch 170/800 | Total: 0.954 Edge: 0.280 Con: 0.093 Cls: 0.209 | Val F1: 0.8365 | 0.1s
+  Epoch 171/800 | Total: 0.945 Edge: 0.278 Con: 0.092 Cls: 0.207 | 0.1s
+  Epoch 172/800 | Total: 0.947 Edge: 0.279 Con: 0.092 Cls: 0.207 | 0.1s
+  Epoch 173/800 | Total: 0.952 Edge: 0.278 Con: 0.093 Cls: 0.209 | 0.1s
+  Epoch 174/800 | Total: 0.915 Edge: 0.278 Con: 0.092 Cls: 0.197 | 0.1s
+  Epoch 175/800 | Total: 0.924 Edge: 0.276 Con: 0.092 Cls: 0.201 | Val F1: 0.8445 | 0.1s
+  Epoch 176/800 | Total: 0.927 Edge: 0.279 Con: 0.093 Cls: 0.201 | 0.1s
+  Epoch 177/800 | Total: 0.919 Edge: 0.274 Con: 0.092 Cls: 0.200 | 0.1s
+  Epoch 178/800 | Total: 0.938 Edge: 0.277 Con: 0.092 Cls: 0.205 | 0.1s
+  Epoch 179/800 | Total: 0.892 Edge: 0.277 Con: 0.092 Cls: 0.190 | 0.1s
+  Epoch 180/800 | Total: 0.893 Edge: 0.276 Con: 0.092 Cls: 0.191 | Val F1: 0.8110 | 0.1s
+  Epoch 181/800 | Total: 0.910 Edge: 0.276 Con: 0.090 Cls: 0.196 | 0.1s
+  Epoch 182/800 | Total: 0.909 Edge: 0.275 Con: 0.092 Cls: 0.196 | 0.1s
+  Epoch 183/800 | Total: 0.880 Edge: 0.288 Con: 0.092 Cls: 0.182 | 0.1s
+  Epoch 184/800 | Total: 0.879 Edge: 0.271 Con: 0.091 Cls: 0.187 | 0.1s
+  Epoch 185/800 | Total: 0.877 Edge: 0.276 Con: 0.091 Cls: 0.185 | Val F1: 0.8568 | 0.1s
+  Epoch 186/800 | Total: 0.871 Edge: 0.280 Con: 0.092 Cls: 0.182 | 0.1s
+  Epoch 187/800 | Total: 0.893 Edge: 0.274 Con: 0.091 Cls: 0.191 | 0.1s
+  Epoch 188/800 | Total: 0.975 Edge: 0.277 Con: 0.092 Cls: 0.217 | 0.1s
+  Epoch 189/800 | Total: 0.932 Edge: 0.278 Con: 0.091 Cls: 0.203 | 0.2s
+  Epoch 190/800 | Total: 0.884 Edge: 0.274 Con: 0.091 Cls: 0.188 | Val F1: 0.8667 | 0.1s
+  Epoch 191/800 | Total: 0.964 Edge: 0.276 Con: 0.092 Cls: 0.214 | 0.1s
+  Epoch 192/800 | Total: 0.972 Edge: 0.282 Con: 0.091 Cls: 0.215 | 0.1s
+  Epoch 193/800 | Total: 0.879 Edge: 0.273 Con: 0.090 Cls: 0.187 | 0.1s
+  Epoch 194/800 | Total: 0.964 Edge: 0.275 Con: 0.090 Cls: 0.215 | 0.1s
+  Epoch 195/800 | Total: 0.921 Edge: 0.284 Con: 0.090 Cls: 0.197 | Val F1: 0.7789 | 0.1s
+  Epoch 196/800 | Total: 0.891 Edge: 0.286 Con: 0.090 Cls: 0.187 | 0.1s
+  Epoch 197/800 | Total: 0.952 Edge: 0.275 Con: 0.091 Cls: 0.210 | 0.1s
+  Epoch 198/800 | Total: 0.862 Edge: 0.286 Con: 0.089 Cls: 0.177 | 0.1s
+  Epoch 199/800 | Total: 0.867 Edge: 0.282 Con: 0.088 Cls: 0.180 | 0.1s
+  Epoch 200/800 | Total: 0.870 Edge: 0.276 Con: 0.090 Cls: 0.183 | Val F1: 0.8533 | 0.1s
+  Epoch 201/800 | Total: 0.898 Edge: 0.297 Con: 0.092 Cls: 0.185 | 0.1s
+  Epoch 202/800 | Total: 0.832 Edge: 0.275 Con: 0.089 Cls: 0.171 | 0.1s
+  Epoch 203/800 | Total: 0.863 Edge: 0.285 Con: 0.088 Cls: 0.178 | 0.1s
+  Epoch 204/800 | Total: 0.861 Edge: 0.274 Con: 0.088 Cls: 0.181 | 0.1s
+  Epoch 205/800 | Total: 0.916 Edge: 0.281 Con: 0.090 Cls: 0.197 | Val F1: 0.8268 | 0.1s
+  Epoch 206/800 | Total: 0.829 Edge: 0.274 Con: 0.089 Cls: 0.170 | 0.2s
+  Epoch 207/800 | Total: 0.842 Edge: 0.273 Con: 0.088 Cls: 0.175 | 0.2s
+  Epoch 208/800 | Total: 0.786 Edge: 0.273 Con: 0.088 Cls: 0.156 | 0.2s
+  Epoch 209/800 | Total: 0.812 Edge: 0.273 Con: 0.088 Cls: 0.165 | 0.1s
+  Epoch 210/800 | Total: 0.753 Edge: 0.272 Con: 0.088 Cls: 0.146 | Val F1: 0.8308 | 0.1s
+  Epoch 211/800 | Total: 0.811 Edge: 0.271 Con: 0.088 Cls: 0.165 | 0.1s
+  Epoch 212/800 | Total: 0.779 Edge: 0.271 Con: 0.087 Cls: 0.155 | 0.2s
+  Epoch 213/800 | Total: 0.829 Edge: 0.270 Con: 0.088 Cls: 0.172 | 0.1s
+  Epoch 214/800 | Total: 0.778 Edge: 0.270 Con: 0.088 Cls: 0.155 | 0.2s
+  Epoch 215/800 | Total: 0.767 Edge: 0.273 Con: 0.088 Cls: 0.150 | Val F1: 0.8344 | 0.1s
+  Epoch 216/800 | Total: 0.785 Edge: 0.268 Con: 0.088 Cls: 0.157 | 0.2s
+  Epoch 217/800 | Total: 0.782 Edge: 0.268 Con: 0.088 Cls: 0.157 | 0.1s
+  Epoch 218/800 | Total: 0.765 Edge: 0.267 Con: 0.088 Cls: 0.151 | 0.1s
+  Epoch 219/800 | Total: 0.750 Edge: 0.266 Con: 0.088 Cls: 0.147 | 0.2s
+  Epoch 220/800 | Total: 0.784 Edge: 0.270 Con: 0.088 Cls: 0.157 | Val F1: 0.8474 | 0.1s
+  Epoch 221/800 | Total: 0.766 Edge: 0.264 Con: 0.088 Cls: 0.152 | 0.1s
+  Epoch 222/800 | Total: 0.787 Edge: 0.272 Con: 0.087 Cls: 0.157 | 0.1s
+  Epoch 223/800 | Total: 0.775 Edge: 0.268 Con: 0.089 Cls: 0.154 | 0.1s
+  Epoch 224/800 | Total: 0.784 Edge: 0.269 Con: 0.087 Cls: 0.157 | 0.1s
+  Epoch 225/800 | Total: 0.755 Edge: 0.267 Con: 0.088 Cls: 0.148 | Val F1: 0.8606 | 0.1s
+  Epoch 226/800 | Total: 0.838 Edge: 0.269 Con: 0.087 Cls: 0.175 | 0.1s
+  Epoch 227/800 | Total: 0.725 Edge: 0.266 Con: 0.087 Cls: 0.138 | 0.1s
+  Epoch 228/800 | Total: 0.806 Edge: 0.270 Con: 0.088 Cls: 0.164 | 0.1s
+  Epoch 229/800 | Total: 0.759 Edge: 0.271 Con: 0.089 Cls: 0.148 | 0.1s
+  Epoch 230/800 | Total: 0.774 Edge: 0.269 Con: 0.089 Cls: 0.153 | Val F1: 0.8502 | 0.2s
+  Epoch 231/800 | Total: 0.766 Edge: 0.274 Con: 0.087 Cls: 0.150 | 0.1s
+  Epoch 232/800 | Total: 0.735 Edge: 0.268 Con: 0.088 Cls: 0.141 | 0.1s
+  Epoch 233/800 | Total: 0.697 Edge: 0.272 Con: 0.089 Cls: 0.127 | 0.1s
+  Epoch 234/800 | Total: 0.711 Edge: 0.267 Con: 0.088 Cls: 0.134 | 0.1s
+  Epoch 235/800 | Total: 0.699 Edge: 0.275 Con: 0.088 Cls: 0.127 | Val F1: 0.8192 | 0.1s
+  Epoch 236/800 | Total: 0.730 Edge: 0.274 Con: 0.087 Cls: 0.137 | 0.1s
+  Epoch 237/800 | Total: 0.709 Edge: 0.268 Con: 0.087 Cls: 0.133 | 0.1s
+  Epoch 238/800 | Total: 0.727 Edge: 0.276 Con: 0.088 Cls: 0.136 | 0.1s
+  Epoch 239/800 | Total: 0.699 Edge: 0.269 Con: 0.087 Cls: 0.129 | 0.1s
+  Epoch 240/800 | Total: 0.710 Edge: 0.268 Con: 0.086 Cls: 0.133 | Val F1: 0.7895 | 0.1s
+  Epoch 241/800 | Total: 0.709 Edge: 0.265 Con: 0.086 Cls: 0.134 | 0.1s
+  Epoch 242/800 | Total: 0.720 Edge: 0.268 Con: 0.087 Cls: 0.136 | 0.1s
+  Epoch 243/800 | Total: 0.729 Edge: 0.265 Con: 0.087 Cls: 0.140 | 0.1s
+  Epoch 244/800 | Total: 0.730 Edge: 0.263 Con: 0.086 Cls: 0.141 | 0.1s
+  Epoch 245/800 | Total: 0.713 Edge: 0.264 Con: 0.086 Cls: 0.135 | Val F1: 0.8721 | 0.1s
+  Epoch 246/800 | Total: 0.706 Edge: 0.259 Con: 0.086 Cls: 0.134 | 0.1s
+  Epoch 247/800 | Total: 0.722 Edge: 0.265 Con: 0.085 Cls: 0.138 | 0.1s
+  Epoch 248/800 | Total: 0.700 Edge: 0.264 Con: 0.086 Cls: 0.131 | 0.1s
+  Epoch 249/800 | Total: 0.730 Edge: 0.263 Con: 0.085 Cls: 0.141 | 0.1s
+  Epoch 250/800 | Total: 0.737 Edge: 0.262 Con: 0.085 Cls: 0.144 | Val F1: 0.8512 | 0.1s
+  Epoch 251/800 | Total: 0.680 Edge: 0.259 Con: 0.086 Cls: 0.126 | 0.1s
+  Epoch 252/800 | Total: 0.753 Edge: 0.265 Con: 0.086 Cls: 0.149 | 0.1s
+  Epoch 253/800 | Total: 0.813 Edge: 0.268 Con: 0.086 Cls: 0.167 | 0.1s
+  Epoch 254/800 | Total: 0.677 Edge: 0.261 Con: 0.085 Cls: 0.124 | 0.1s
+  Epoch 255/800 | Total: 0.863 Edge: 0.268 Con: 0.085 Cls: 0.184 | Val F1: 0.7597 | 0.1s
+  Epoch 256/800 | Total: 0.824 Edge: 0.270 Con: 0.086 Cls: 0.170 | 0.1s
+  Epoch 257/800 | Total: 0.654 Edge: 0.263 Con: 0.085 Cls: 0.116 | 0.1s
+  Epoch 258/800 | Total: 0.783 Edge: 0.263 Con: 0.084 Cls: 0.159 | 0.1s
+  Epoch 259/800 | Total: 0.699 Edge: 0.260 Con: 0.084 Cls: 0.132 | 0.1s
+  Epoch 260/800 | Total: 0.743 Edge: 0.260 Con: 0.084 Cls: 0.147 | Val F1: 0.8737 | 0.1s
+  Epoch 261/800 | Total: 0.711 Edge: 0.263 Con: 0.085 Cls: 0.135 | 0.1s
+  Epoch 262/800 | Total: 0.688 Edge: 0.262 Con: 0.085 Cls: 0.128 | 0.1s
+  Epoch 263/800 | Total: 0.701 Edge: 0.265 Con: 0.084 Cls: 0.131 | 0.1s
+  Epoch 264/800 | Total: 0.702 Edge: 0.261 Con: 0.084 Cls: 0.133 | 0.1s
+  Epoch 265/800 | Total: 0.735 Edge: 0.267 Con: 0.084 Cls: 0.142 | Val F1: 0.8600 | 0.1s
+  Epoch 266/800 | Total: 0.677 Edge: 0.261 Con: 0.084 Cls: 0.125 | 0.1s
+  Epoch 267/800 | Total: 0.681 Edge: 0.264 Con: 0.084 Cls: 0.125 | 0.1s
+  Epoch 268/800 | Total: 0.679 Edge: 0.262 Con: 0.084 Cls: 0.125 | 0.1s
+  Epoch 269/800 | Total: 0.706 Edge: 0.266 Con: 0.084 Cls: 0.133 | 0.1s
+  Epoch 270/800 | Total: 0.715 Edge: 0.267 Con: 0.085 Cls: 0.135 | Val F1: 0.7748 | 0.1s
+  Epoch 271/800 | Total: 0.624 Edge: 0.259 Con: 0.083 Cls: 0.108 | 0.1s
+  Epoch 272/800 | Total: 0.686 Edge: 0.265 Con: 0.083 Cls: 0.126 | 0.1s
+  Epoch 273/800 | Total: 0.632 Edge: 0.259 Con: 0.084 Cls: 0.110 | 0.1s
+  Epoch 274/800 | Total: 0.702 Edge: 0.262 Con: 0.085 Cls: 0.132 | 0.1s
+  Epoch 275/800 | Total: 0.620 Edge: 0.258 Con: 0.083 Cls: 0.107 | Val F1: 0.7866 | 0.1s
+  Epoch 276/800 | Total: 0.664 Edge: 0.261 Con: 0.083 Cls: 0.120 | 0.1s
+  Epoch 277/800 | Total: 0.637 Edge: 0.260 Con: 0.083 Cls: 0.112 | 0.1s
+  Epoch 278/800 | Total: 0.620 Edge: 0.258 Con: 0.084 Cls: 0.107 | 0.1s
+  Epoch 279/800 | Total: 0.641 Edge: 0.260 Con: 0.083 Cls: 0.113 | 0.1s
+  Epoch 280/800 | Total: 0.657 Edge: 0.259 Con: 0.084 Cls: 0.119 | Val F1: 0.8152 | 0.1s
+  Epoch 281/800 | Total: 0.640 Edge: 0.256 Con: 0.083 Cls: 0.114 | 0.1s
+  Epoch 282/800 | Total: 0.620 Edge: 0.258 Con: 0.084 Cls: 0.107 | 0.1s
+  Epoch 283/800 | Total: 0.627 Edge: 0.259 Con: 0.083 Cls: 0.109 | 0.1s
+  Epoch 284/800 | Total: 0.596 Edge: 0.257 Con: 0.083 Cls: 0.099 | 0.1s
+  Epoch 285/800 | Total: 0.588 Edge: 0.257 Con: 0.083 Cls: 0.096 | Val F1: 0.8148 | 0.1s
+  Epoch 286/800 | Total: 0.611 Edge: 0.259 Con: 0.084 Cls: 0.103 | 0.1s
+  Epoch 287/800 | Total: 0.601 Edge: 0.257 Con: 0.084 Cls: 0.101 | 0.1s
+  Epoch 288/800 | Total: 0.598 Edge: 0.254 Con: 0.083 Cls: 0.101 | 0.2s
+  Epoch 289/800 | Total: 0.587 Edge: 0.256 Con: 0.082 Cls: 0.097 | 0.1s
+  Epoch 290/800 | Total: 0.588 Edge: 0.255 Con: 0.083 Cls: 0.097 | Val F1: 0.7924 | 0.1s
+  Epoch 291/800 | Total: 0.573 Edge: 0.256 Con: 0.083 Cls: 0.092 | 0.1s
+  Epoch 292/800 | Total: 0.595 Edge: 0.251 Con: 0.084 Cls: 0.101 | 0.1s
+  Epoch 293/800 | Total: 0.548 Edge: 0.257 Con: 0.084 Cls: 0.083 | 0.1s
+  Epoch 294/800 | Total: 0.553 Edge: 0.253 Con: 0.084 Cls: 0.086 | 0.2s
+  Epoch 295/800 | Total: 0.565 Edge: 0.255 Con: 0.082 Cls: 0.089 | Val F1: 0.8309 | 0.1s
+  Epoch 296/800 | Total: 0.561 Edge: 0.253 Con: 0.084 Cls: 0.089 | 0.2s
+  Epoch 297/800 | Total: 0.589 Edge: 0.253 Con: 0.083 Cls: 0.098 | 0.1s
+  Epoch 298/800 | Total: 0.547 Edge: 0.257 Con: 0.083 Cls: 0.083 | 0.1s
+  Epoch 299/800 | Total: 0.576 Edge: 0.254 Con: 0.082 Cls: 0.094 | 0.1s
+  Epoch 300/800 | Total: 0.577 Edge: 0.254 Con: 0.083 Cls: 0.094 | Val F1: 0.8494 | 0.1s
+  Epoch 301/800 | Total: 0.582 Edge: 0.250 Con: 0.082 Cls: 0.097 | 0.1s
+  Epoch 302/800 | Total: 0.599 Edge: 0.260 Con: 0.082 Cls: 0.099 | 0.1s
+  Epoch 303/800 | Total: 0.550 Edge: 0.251 Con: 0.082 Cls: 0.086 | 0.1s
+  Epoch 304/800 | Total: 0.575 Edge: 0.259 Con: 0.082 Cls: 0.092 | 0.1s
+  Epoch 305/800 | Total: 0.570 Edge: 0.259 Con: 0.082 Cls: 0.090 | Val F1: 0.8186 | 0.1s
+  Epoch 306/800 | Total: 0.584 Edge: 0.251 Con: 0.082 Cls: 0.097 | 0.1s
+  Epoch 307/800 | Total: 0.628 Edge: 0.267 Con: 0.081 Cls: 0.107 | 0.1s
+  Epoch 308/800 | Total: 0.567 Edge: 0.249 Con: 0.081 Cls: 0.092 | 0.1s
+  Epoch 309/800 | Total: 0.571 Edge: 0.264 Con: 0.083 Cls: 0.088 | 0.2s
+  Epoch 310/800 | Total: 0.564 Edge: 0.258 Con: 0.083 Cls: 0.088 | Val F1: 0.8602 | 0.1s
+  Epoch 311/800 | Total: 0.584 Edge: 0.251 Con: 0.082 Cls: 0.097 | 0.2s
+  Epoch 312/800 | Total: 0.574 Edge: 0.254 Con: 0.082 Cls: 0.093 | 0.1s
+  Epoch 313/800 | Total: 0.531 Edge: 0.258 Con: 0.083 Cls: 0.077 | 0.2s
+  Epoch 314/800 | Total: 0.620 Edge: 0.257 Con: 0.082 Cls: 0.107 | 0.1s
+  Epoch 315/800 | Total: 0.543 Edge: 0.255 Con: 0.082 Cls: 0.082 | Val F1: 0.7697 | 0.1s
+  Epoch 316/800 | Total: 0.626 Edge: 0.254 Con: 0.081 Cls: 0.111 | 0.1s
+  Epoch 317/800 | Total: 0.536 Edge: 0.253 Con: 0.082 Cls: 0.081 | 0.1s
+  Epoch 318/800 | Total: 0.592 Edge: 0.250 Con: 0.083 Cls: 0.100 | 0.1s
+  Epoch 319/800 | Total: 0.545 Edge: 0.253 Con: 0.081 Cls: 0.084 | 0.1s
+  Epoch 320/800 | Total: 0.642 Edge: 0.251 Con: 0.081 Cls: 0.117 | Val F1: 0.7968 | 0.1s
+  Epoch 321/800 | Total: 0.561 Edge: 0.253 Con: 0.080 Cls: 0.089 | 0.1s
+  Epoch 322/800 | Total: 0.588 Edge: 0.250 Con: 0.081 Cls: 0.099 | 0.1s
+  Epoch 323/800 | Total: 0.605 Edge: 0.261 Con: 0.082 Cls: 0.101 | 0.1s
+  Epoch 324/800 | Total: 0.558 Edge: 0.253 Con: 0.081 Cls: 0.088 | 0.1s
+  Epoch 325/800 | Total: 0.610 Edge: 0.253 Con: 0.081 Cls: 0.105 | Val F1: 0.8465 | 0.1s
+  Epoch 326/800 | Total: 0.564 Edge: 0.250 Con: 0.081 Cls: 0.091 | 0.1s
+  Epoch 327/800 | Total: 0.584 Edge: 0.258 Con: 0.082 Cls: 0.095 | 0.1s
+  Epoch 328/800 | Total: 0.559 Edge: 0.253 Con: 0.081 Cls: 0.089 | 0.1s
+  Epoch 329/800 | Total: 0.556 Edge: 0.252 Con: 0.080 Cls: 0.088 | 0.1s
+  Epoch 330/800 | Total: 0.579 Edge: 0.251 Con: 0.080 Cls: 0.096 | Val F1: 0.7755 | 0.1s
+  Epoch 331/800 | Total: 0.573 Edge: 0.251 Con: 0.081 Cls: 0.094 | 0.1s
+  Epoch 332/800 | Total: 0.536 Edge: 0.250 Con: 0.080 Cls: 0.082 | 0.1s
+  Epoch 333/800 | Total: 0.560 Edge: 0.253 Con: 0.081 Cls: 0.089 | 0.1s
+  Epoch 334/800 | Total: 0.555 Edge: 0.254 Con: 0.080 Cls: 0.087 | 0.1s
+  Epoch 335/800 | Total: 0.516 Edge: 0.248 Con: 0.081 Cls: 0.076 | Val F1: 0.7865 | 0.1s
+  Epoch 336/800 | Total: 0.528 Edge: 0.250 Con: 0.081 Cls: 0.079 | 0.1s
+  Epoch 337/800 | Total: 0.510 Edge: 0.252 Con: 0.080 Cls: 0.073 | 0.1s
+  Epoch 338/800 | Total: 0.548 Edge: 0.251 Con: 0.080 Cls: 0.086 | 0.1s
+  Epoch 339/800 | Total: 0.523 Edge: 0.247 Con: 0.080 Cls: 0.079 | 0.1s
+  Epoch 340/800 | Total: 0.519 Edge: 0.259 Con: 0.081 Cls: 0.073 | Val F1: 0.8575 | 0.1s
+  Epoch 341/800 | Total: 0.570 Edge: 0.253 Con: 0.081 Cls: 0.092 | 0.1s
+  Epoch 342/800 | Total: 0.545 Edge: 0.251 Con: 0.080 Cls: 0.085 | 0.1s
+  Epoch 343/800 | Total: 0.523 Edge: 0.255 Con: 0.079 Cls: 0.076 | 0.1s
+  Epoch 344/800 | Total: 0.561 Edge: 0.253 Con: 0.079 Cls: 0.089 | 0.1s
+  Epoch 345/800 | Total: 0.513 Edge: 0.251 Con: 0.081 Cls: 0.074 | Val F1: 0.8301 | 0.1s
+  Epoch 346/800 | Total: 0.569 Edge: 0.249 Con: 0.080 Cls: 0.094 | 0.1s
+  Epoch 347/800 | Total: 0.523 Edge: 0.250 Con: 0.080 Cls: 0.078 | 0.1s
+  Epoch 348/800 | Total: 0.555 Edge: 0.250 Con: 0.079 Cls: 0.088 | 0.1s
+  Epoch 349/800 | Total: 0.522 Edge: 0.252 Con: 0.080 Cls: 0.077 | 0.1s
+  Epoch 350/800 | Total: 0.514 Edge: 0.247 Con: 0.080 Cls: 0.076 | Val F1: 0.8525 | 0.1s
+  Epoch 351/800 | Total: 0.542 Edge: 0.254 Con: 0.080 Cls: 0.083 | 0.1s
+  Epoch 352/800 | Total: 0.522 Edge: 0.248 Con: 0.079 Cls: 0.078 | 0.1s
+  Epoch 353/800 | Total: 0.536 Edge: 0.251 Con: 0.080 Cls: 0.082 | 0.1s
+  Epoch 354/800 | Total: 0.508 Edge: 0.248 Con: 0.079 Cls: 0.074 | 0.1s
+  Epoch 355/800 | Total: 0.549 Edge: 0.247 Con: 0.080 Cls: 0.087 | Val F1: 0.7752 | 0.1s
+  Epoch 356/800 | Total: 0.527 Edge: 0.248 Con: 0.079 Cls: 0.080 | 0.2s
+  Epoch 357/800 | Total: 0.513 Edge: 0.247 Con: 0.079 Cls: 0.076 | 0.1s
+  Epoch 358/800 | Total: 0.503 Edge: 0.252 Con: 0.079 Cls: 0.070 | 0.1s
+  Epoch 359/800 | Total: 0.517 Edge: 0.248 Con: 0.079 Cls: 0.076 | 0.1s
+  Epoch 360/800 | Total: 0.482 Edge: 0.256 Con: 0.079 Cls: 0.062 | Val F1: 0.8271 | 0.1s
+  Early stopping at epoch 360
+  Best Val F1: 0.8737 | Test F1: 0.8630
+  Total training time: 57.1s (1.0 min)
+
+======================================================================
+  Val  Macro-F1: 0.8737
+  Test Macro-F1: 0.8630
+  Test Accuracy: 0.8688
+  Time: 57.3s
+======================================================================
+
+  Results saved to: results/NESS_amac_MCAR_0.8_20260724_061046

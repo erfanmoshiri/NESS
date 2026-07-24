@@ -1,0 +1,59 @@
+/home/erfan/MATE/ogbn_benchmarks/../src/utils.py:183: UserWarning: torch.sparse.SparseTensor(indices, values, shape, *, device=) is deprecated.  Please use torch.sparse_coo_tensor(indices, values, shape, dtype=, device=). (Triggered internally at /pytorch/torch/csrc/utils/tensor_new.cpp:654.)
+  adj_norm = torch.sparse.FloatTensor(indices_norm, values_norm, torch.Size(adj_norm.shape))
+======================================================================
+  MATE | citeseer | MCAR @ 40% | lr=0.01
+======================================================================
+[1/3] Loading citeseer...
+loading dataset: citeseer
+  3,327 nodes | 3703 dims | 6 classes
+[2/3] Simulating MCAR missingness...
+Simulating MCAR missingness at 40% rate...
+  MCAR: Uniform random selection
+  Observable: 1,997 (60.0%)
+  Masked: 1,330 (40.0%)
+  Observable: 1,997 | Val: 665 | Test: 665
+[3/3] Running MATE...
+  Small graph: full-batch (single cluster, no partitioning)
+  Training MATE for up to 800 epochs (patience=20)...
+  Epoch 5/800 | Total: 1.396 Edge: 0.544 Con: 0.114 Cls: 0.738 | Val F1: 0.6087 | 0.0s
+  Epoch 10/800 | Total: 0.828 Edge: 0.439 Con: 0.107 Cls: 0.282 | Val F1: 0.6177 | 0.0s
+  Epoch 15/800 | Total: 0.699 Edge: 0.341 Con: 0.099 Cls: 0.259 | Val F1: 0.6265 | 0.0s
+  Epoch 20/800 | Total: 0.658 Edge: 0.308 Con: 0.093 Cls: 0.257 | Val F1: 0.6194 | 0.0s
+  Epoch 25/800 | Total: 0.583 Edge: 0.276 Con: 0.090 Cls: 0.217 | Val F1: 0.6302 | 0.0s
+  Epoch 30/800 | Total: 0.554 Edge: 0.245 Con: 0.085 Cls: 0.224 | Val F1: 0.6425 | 0.0s
+  Epoch 35/800 | Total: 0.543 Edge: 0.238 Con: 0.081 Cls: 0.224 | Val F1: 0.6329 | 0.0s
+  Epoch 40/800 | Total: 0.493 Edge: 0.214 Con: 0.078 Cls: 0.201 | Val F1: 0.6180 | 0.0s
+  Epoch 45/800 | Total: 0.478 Edge: 0.198 Con: 0.077 Cls: 0.204 | Val F1: 0.6333 | 0.0s
+  Epoch 50/800 | Total: 0.467 Edge: 0.178 Con: 0.072 Cls: 0.216 | Val F1: 0.6562 | 0.0s
+  Epoch 55/800 | Total: 0.461 Edge: 0.172 Con: 0.071 Cls: 0.219 | Val F1: 0.6313 | 0.0s
+  Epoch 60/800 | Total: 0.424 Edge: 0.168 Con: 0.070 Cls: 0.186 | Val F1: 0.6329 | 0.0s
+  Epoch 65/800 | Total: 0.414 Edge: 0.152 Con: 0.067 Cls: 0.195 | Val F1: 0.6321 | 0.0s
+  Epoch 70/800 | Total: 0.424 Edge: 0.155 Con: 0.067 Cls: 0.202 | Val F1: 0.6249 | 0.0s
+  Epoch 75/800 | Total: 0.417 Edge: 0.148 Con: 0.067 Cls: 0.203 | Val F1: 0.6100 | 0.0s
+  Epoch 80/800 | Total: 0.407 Edge: 0.149 Con: 0.064 Cls: 0.194 | Val F1: 0.6357 | 0.0s
+  Epoch 85/800 | Total: 0.395 Edge: 0.148 Con: 0.065 Cls: 0.183 | Val F1: 0.6359 | 0.0s
+  Epoch 90/800 | Total: 0.388 Edge: 0.150 Con: 0.063 Cls: 0.174 | Val F1: 0.6302 | 0.0s
+  Epoch 95/800 | Total: 0.398 Edge: 0.133 Con: 0.064 Cls: 0.201 | Val F1: 0.6416 | 0.0s
+  Epoch 100/800 | Total: 0.390 Edge: 0.157 Con: 0.066 Cls: 0.167 | Val F1: 0.6465 | 0.0s
+  Epoch 105/800 | Total: 0.400 Edge: 0.141 Con: 0.064 Cls: 0.195 | Val F1: 0.6374 | 0.0s
+  Epoch 110/800 | Total: 0.376 Edge: 0.134 Con: 0.063 Cls: 0.178 | Val F1: 0.6133 | 0.0s
+  Epoch 115/800 | Total: 0.374 Edge: 0.135 Con: 0.063 Cls: 0.176 | Val F1: 0.6291 | 0.0s
+  Epoch 120/800 | Total: 0.374 Edge: 0.138 Con: 0.063 Cls: 0.173 | Val F1: 0.6271 | 0.0s
+  Epoch 125/800 | Total: 0.396 Edge: 0.138 Con: 0.062 Cls: 0.195 | Val F1: 0.6278 | 0.0s
+  Epoch 130/800 | Total: 0.378 Edge: 0.127 Con: 0.062 Cls: 0.189 | Val F1: 0.6290 | 0.0s
+  Epoch 135/800 | Total: 0.368 Edge: 0.134 Con: 0.064 Cls: 0.171 | Val F1: 0.6355 | 0.0s
+  Epoch 140/800 | Total: 0.388 Edge: 0.128 Con: 0.062 Cls: 0.198 | Val F1: 0.6233 | 0.0s
+  Epoch 145/800 | Total: 0.377 Edge: 0.126 Con: 0.062 Cls: 0.189 | Val F1: 0.6294 | 0.0s
+  Epoch 150/800 | Total: 0.380 Edge: 0.131 Con: 0.063 Cls: 0.186 | Val F1: 0.6200 | 0.0s
+  Early stopping at epoch 150
+  Best Val F1: 0.6562 | Test F1: 0.6778
+  Total training time: 3.4s (0.1 min) over 150 epochs
+
+======================================================================
+  Val  Macro-F1: 0.6562
+  Test Macro-F1: 0.6778
+  Test Accuracy: 0.7053
+  Time: 3.6s
+======================================================================
+
+  Results saved to: results/MATE_citeseer_MCAR_0.4_20260724_061615

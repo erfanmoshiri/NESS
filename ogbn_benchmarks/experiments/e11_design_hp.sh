@@ -29,7 +29,7 @@ SUMMARY="$LOGROOT/summary.txt"
 
 echo "=================================================" | tee -a "$SUMMARY"
 echo "E11 Design & HP | NESS | $DATASET | $MISSINGNESS @ $MISS_RATE" | tee -a "$SUMMARY"
-echo "base: SAGE, hidden=128, ppr, ssl=hist+path, 2 layers | epochs=$EPOCHS" | tee -a "$SUMMARY"
+echo "base: SAGE, hidden=128, edge_mask, ssl=hist+path, 2 layers | epochs=$EPOCHS" | tee -a "$SUMMARY"
 echo "Started: $(date)" | tee -a "$SUMMARY"
 echo "=================================================" | tee -a "$SUMMARY"
 
@@ -41,7 +41,7 @@ run() {
         --missingness "$MISSINGNESS" --miss_rate "$MISS_RATE" \
         --epochs "$EPOCHS" --patience "$PATIENCE" \
         --num_parts "$NUM_PARTS" --cache_device gpu \
-        --ssl_objective hist path --view2 ppr \
+        --ssl_objective hist path --view2 edge_mask \
         "$@" > "$LOGROOT/${LABEL}.log" 2>&1 \
         && echo "    $LABEL ok" || echo "    $LABEL FAILED (exit $?) — continuing"
 }

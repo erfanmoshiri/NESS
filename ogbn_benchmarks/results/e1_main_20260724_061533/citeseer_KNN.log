@@ -1,0 +1,29 @@
+/home/erfan/MATE/ogbn_benchmarks/../src/utils.py:183: UserWarning: torch.sparse.SparseTensor(indices, values, shape, *, device=) is deprecated.  Please use torch.sparse_coo_tensor(indices, values, shape, dtype=, device=). (Triggered internally at /pytorch/torch/csrc/utils/tensor_new.cpp:654.)
+  adj_norm = torch.sparse.FloatTensor(indices_norm, values_norm, torch.Size(adj_norm.shape))
+/home/erfan/MATE/venv/lib/python3.13/site-packages/sklearn/linear_model/_logistic.py:1457: FutureWarning: 'n_jobs' has no effect since 1.8 and will be removed in 1.10. You provided 'n_jobs=-1', please leave it unspecified.
+  warnings.warn(msg, category=FutureWarning)
+======================================================================
+  KNN | citeseer | MCAR @ 40% | lr=0.01
+======================================================================
+[1/3] Loading citeseer...
+loading dataset: citeseer
+  3,327 nodes | 3703 dims | 6 classes
+[2/3] Simulating MCAR missingness...
+Simulating MCAR missingness at 40% rate...
+  MCAR: Uniform random selection
+  Observable: 1,997 (60.0%)
+  Masked: 1,330 (40.0%)
+  Observable: 1,997 | Val: 665 | Test: 665
+[3/3] Running KNN...
+  True KNN (K=3, max_hops=10) over 1,330 missing nodes...
+  KNN done in 0.1s | 109 nodes used global-mean fallback
+  Training linear classifier on imputed features...
+
+======================================================================
+  Val  Macro-F1: 0.6432
+  Test Macro-F1: 0.6888
+  Test Accuracy: 0.7203
+  Time: 10.6s
+======================================================================
+
+  Results saved to: results/KNN_citeseer_MCAR_0.4_20260724_061603

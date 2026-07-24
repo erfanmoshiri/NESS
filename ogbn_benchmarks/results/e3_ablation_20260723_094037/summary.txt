@@ -1,0 +1,33 @@
+=================================================
+E3 Objective Ablation | NESS | ogbn-arxiv | MCAR @ 0.8 | view2=ppr
+epochs=800 patience=20 | contrastive ON unless noted
+Started: Thu Jul 23 09:40:37 AM UTC 2026
+=================================================
+  running: ssl_centroid ...
+  running: ssl_stats ...
+  running: ssl_recon ...
+  running: ssl_hist ...
+  running: ssl_path ...
+  running: ssl_triplet ...
+  running: ssl_anchor ...
+  running: ssl_hist_path ...
+  running: no_ssl ...
+  running: single_view ...
+
+=================================================
+E3 RESULTS | NESS | ogbn-arxiv | MCAR @ 0.8
+=================================================
+CONFIG           VAL_F1     TEST_F1    TEST_ACC  
+ssl_centroid     0.3752     0.3779     0.6200    
+ssl_stats        0.3477     0.3500     0.6144    
+ssl_recon        0.3523     0.3513     0.6129    
+ssl_hist         0.3922     0.3932     0.6365    
+ssl_path         0.3714     0.3760     0.6213    
+ssl_triplet      0.3628     0.3637     0.6171    
+ssl_anchor       0.3788     0.3860     0.6294    
+ssl_hist_path    0.3878     0.3906     0.6330
+ssl_hist_anchor  0.3879.    0.3882.    0.6286    
+no_ssl           0.3750     0.3748     0.6242    
+single_view      0.3696     0.3748     0.6184    
+=================================================
+Finished: Thu Jul 23 11:29:05 AM UTC 2026

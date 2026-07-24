@@ -1,0 +1,22 @@
+=================================================
+SSL-vs-missingness probe | NESS | ogbn-arxiv | MCAR
+base: SAGE-128, edge_mask, 800 epochs | rates: 0.9 0.95
+Started: Thu Jul 23 03:43:49 PM UTC 2026
+=================================================
+  running: no_ssl_09 @ 0.9 ...
+  running: anchor_09 @ 0.9 ...
+  running: hist_path_09 @ 0.9 ...
+  running: no_ssl_095 @ 0.95 ...
+  running: anchor_095 @ 0.95 ...
+  running: hist_path_095 @ 0.95 ...
+
+=================================================
+RESULTS — Test Macro-F1 (rows=config, cols=rate)
+watch: does (anchor - no_ssl) / (hist_path - no_ssl) grow with rate?
+=================================================
+config      0.9       0.95      
+no_ssl      0.3390    0.3043    
+anchor      0.3481    0.3063    
+hist_path   0.3552    0.3321    
+=================================================
+Finished: Thu Jul 23 04:51:37 PM UTC 2026
