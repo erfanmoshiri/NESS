@@ -38,7 +38,8 @@ class GraphSAGE(nn.Module):
 def train_GraphSAGE(graph, features, labels, observable_id, masked_id, vali_id, test_id,
                     num_classes, device, hidden=256, dropout=0.5, lr=0.01,
                     weight_decay=5e-4, epochs=200, patience=20, neighbors=[10, 5],
-                    batch_size=512, log_path=None, weights_path=None):
+                    batch_size=512, aux_hist=False, w_hist=1.0, ssl_hops=2,
+                    log_path=None, weights_path=None):
     """
     Args:
         graph: PyG Data object with edge_index
@@ -67,7 +68,22 @@ def train_GraphSAGE(graph, features, labels, observable_id, masked_id, vali_id, 
     graph.y = labels
 
     model = GraphSAGE(features.size(1), hidden, num_classes, dropout).to(device)
-    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+
+    # E7b: optional hist auxiliary objective (neighbor label-histogram, semi-supervised).
+    hist_head = None
+    target_hist_full = None
+    if aux_hist:
+        from NESS_bench import _compute_label_histogram
+        N = features.size(0)
+        ei = graph.edge_index
+        vals = torch.ones(ei.size(1))
+        adj_sp = torch.sparse_coo_tensor(ei, vals, (N, N)).coalesce()
+        target_hist_full = _compute_label_histogram(
+            adj_sp, labels.cpu(), observable_id.cpu(), num_classes, k=ssl_hops).to(device)
+        hist_head = nn.Linear(hidden, num_classes).to(device)
+
+    params = list(model.parameters()) + (list(hist_head.parameters()) if hist_head else [])
+    optimizer = optim.Adam(params, lr=lr, weight_decay=weight_decay)
 
     # ---- Small graph: full-batch training ----
     if is_small(features.size(0)):
@@ -108,9 +124,21 @@ def train_GraphSAGE(graph, features, labels, observable_id, masked_id, vali_id, 
         for batch in train_loader:
             batch = batch.to(device)
             optimizer.zero_grad()
-            logits = model.predict(batch.x, batch.edge_index)
-            seed_labels = batch.y[:batch.batch_size].squeeze()
-            loss = F.cross_entropy(logits[:batch.batch_size], seed_labels)
+            bs = batch.batch_size
+            if hist_head is not None:
+                z = model(batch.x, batch.edge_index)
+                logits = model.classifier(z)
+            else:
+                logits = model.predict(batch.x, batch.edge_index)
+            seed_labels = batch.y[:bs].squeeze()
+            loss = F.cross_entropy(logits[:bs], seed_labels)
+            if hist_head is not None:
+                seed_gid = batch.n_id[:bs]                    # global ids of seed nodes
+                tgt = target_hist_full[seed_gid]
+                valid = tgt.sum(dim=1) > 0
+                if valid.any():
+                    pred_logp = F.log_softmax(hist_head(z[:bs][valid]), dim=1)
+                    loss = loss + w_hist * F.kl_div(pred_logp, tgt[valid], reduction='batchmean')
             loss.backward()
             optimizer.step()
             total_loss += loss.item()

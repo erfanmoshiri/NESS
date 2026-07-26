@@ -56,7 +56,7 @@ class PaGCN(nn.Module):
         self.pgc2 = PartialGCNLayer(hidden_channels, hidden_channels)
         self.classifier = nn.Linear(hidden_channels, num_classes)
 
-    def forward(self, x, norm_adj, mask):
+    def forward(self, x, norm_adj, mask, return_h=False):
         # First partial conv uses the feature mask
         h = F.relu(self.pgc1(x, norm_adj, mask))
         h = F.dropout(h, p=self.dropout, training=self.training)
@@ -64,7 +64,8 @@ class PaGCN(nn.Module):
         ones = torch.ones_like(h)
         h = F.relu(self.pgc2(h, norm_adj, ones))
         h = F.dropout(h, p=self.dropout, training=self.training)
-        return self.classifier(h)
+        logits = self.classifier(h)
+        return (logits, h) if return_h else logits
 
 
 def _normalize_adj(edge_index, num_nodes, device):
@@ -90,6 +91,7 @@ def _normalize_adj(edge_index, num_nodes, device):
 def train_PaGCN(graph, features, labels, observable_id, masked_id, vali_id, test_id,
                 num_classes, device, hidden=256, dropout=0.5, lr=0.01,
                 weight_decay=5e-4, epochs=200, patience=20, num_parts=50,
+                aux_hist=False, w_hist=1.0, ssl_hops=2,
                 log_path=None, weights_path=None):
     """
     Cluster-based training (same scalability approach as our MATE_ogbn).
@@ -113,7 +115,23 @@ def train_PaGCN(graph, features, labels, observable_id, masked_id, vali_id, test
     obs_mask_full[observable_id.cpu()] = True
 
     model = PaGCN(features.size(1), hidden, num_classes, dropout).to(device)
-    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+
+    # E7b: optional hist auxiliary objective (neighbor label-histogram, semi-supervised).
+    hist_head = None
+    target_hist_full = None
+    if aux_hist:
+        from NESS_bench import _compute_label_histogram
+        import scipy.sparse as sp
+        A = _normalize_adj  # not used; build plain adj below
+        ei = graph.edge_index
+        vals = torch.ones(ei.size(1))
+        adj_sp = torch.sparse_coo_tensor(ei, vals, (num_nodes, num_nodes)).coalesce()
+        target_hist_full = _compute_label_histogram(
+            adj_sp, labels.cpu(), observable_id.cpu(), num_classes, k=ssl_hops).to(device)
+        hist_head = nn.Linear(hidden, num_classes).to(device)
+
+    params = list(model.parameters()) + (list(hist_head.parameters()) if hist_head else [])
+    optimizer = optim.Adam(params, lr=lr, weight_decay=weight_decay)
 
     # ---- Small graph: full-batch training ----
     if is_small(num_nodes):
@@ -160,6 +178,7 @@ def train_PaGCN(graph, features, labels, observable_id, masked_id, vali_id, test
             'mask': batch.node_mask.expand(-1, batch.x.size(1)),  # [n, D]
             'obs_mask': obs_mask_full[gidx.cpu()].to(device),
             'global_indices': gidx,
+            'target_hist': target_hist_full[gidx] if target_hist_full is not None else None,
         })
     print(f'  Cached {len(cluster_cache)} clusters')
 
@@ -177,10 +196,19 @@ def train_PaGCN(graph, features, labels, observable_id, masked_id, vali_id, test
 
         for c in cluster_cache:
             optimizer.zero_grad()
-            logits = model(c['x'], c['norm_adj'], c['mask'])
+            if hist_head is not None:
+                logits, h = model(c['x'], c['norm_adj'], c['mask'], return_h=True)
+            else:
+                logits = model(c['x'], c['norm_adj'], c['mask'])
             y = c['y'].squeeze() if c['y'].dim() > 1 else c['y']
             obs = c['obs_mask']
             loss = F.cross_entropy(logits[obs], y[obs])  # observable nodes only
+            if hist_head is not None:
+                pred_logp = F.log_softmax(hist_head(h[obs]), dim=1)
+                tgt = c['target_hist'][obs]
+                valid = tgt.sum(dim=1) > 0
+                if valid.any():
+                    loss = loss + w_hist * F.kl_div(pred_logp[valid], tgt[valid], reduction='batchmean')
             loss.backward()
             optimizer.step()
             total_loss += loss.item()

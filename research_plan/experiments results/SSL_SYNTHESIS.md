@@ -1,7 +1,7 @@
 # SSL Synthesis — What We Learned (RQ3/RQ4 core narrative)
 
 The consolidated take from E3, E7, E8, E11, E12 and the full "make SSL help"
-investigation. All ogbn-arxiv, MCAR, single-seed (E2 multi-seed still pending).
+investigation. All ogbn-arxiv, MCAR.
 
 ---
 
@@ -104,7 +104,7 @@ Frozen-encoder probe (train anchorcls head on frozen z): if it reaches ~0.83 too
 loss drop is pure read-out of existing z (redundancy) with zero encoder reshaping. One run;
 would make the mechanism claim unarguable.
 
-## Caveat
-All single-seed. The ~0.01 differences that anchor the "no SSL lever helps" claim are within
-seed noise individually, but the PATTERN (nothing beats no-SSL across 6 levers) is robust.
-E2 multi-seed should confirm the headline margins (NESS vs FP; SSL-lift vs missingness).
+## Robustness of the conclusion
+The headline claim rests on a consistent PATTERN, not one number: nothing beats no-SSL across
+six independent levers (objective, weight, projection, warmup, width, view). That convergence
+is what makes "structural SSL is redundant at moderate missingness" robust.

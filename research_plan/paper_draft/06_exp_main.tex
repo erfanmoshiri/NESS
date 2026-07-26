@@ -1,0 +1,29 @@
+\subsection{Main Comparison}
+\label{sec:exp-main}
+
+We first compare NESS against baselines spanning every category of the missing-feature landscape: non-parametric imputation (NeighAggre, KNN), scalable propagation (FP), an imputation-free work-around (PaGCN), per-node parameterization (MATE), and a zero-filled GNN (GraphSAGE), under MCAR missingness at rate $0.4$. Table~\ref{tab:main} reports test macro-F1 and accuracy on the masked nodes, averaged over three seeds.
+
+On ogbn-arxiv, the large dense-embedding graph that is the primary target of this work, NESS attains the highest performance, reaching $0.454$ macro-F1 compared to $0.439$ for the strongest baseline (FP) and $0.404$ for MATE, and the highest accuracy ($0.676$). NESS also performs favorably on the small binary graphs, achieving the best macro-F1 on CiteSeer ($0.735$) and AMAC ($0.911$) and results within a narrow margin of the best on Cora and AMAP. On these small, sparse benchmarks the strongest methods (FP, PaGCN, MATE) perform comparably and the differences are small; a more pronounced separation emerges on the large dense graph, consistent with the regime analysis in Section~\ref{sec:exp-regime} and with the widening advantage under increasing missingness reported in Section~\ref{sec:exp-rate}.
+
+\begin{table}[t]
+\centering
+\caption{Main comparison under MCAR missingness at rate $0.4$. Each cell reports test macro-F1 / accuracy on masked nodes, averaged over three seeds. Best macro-F1 per dataset in \textbf{bold}.}
+\label{tab:main}
+\resizebox{\linewidth}{!}{%
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+& \textbf{Cora} & \textbf{CiteSeer} & \textbf{AMAC} & \textbf{AMAP} & \textbf{ogbn-arxiv} \\
+\textbf{Method} & F1 / Acc & F1 / Acc & F1 / Acc & F1 / Acc & F1 / Acc \\
+\midrule
+NeighAggre & 0.804 / 0.799 & 0.658 / 0.675 & 0.848 / 0.865 & 0.868 / 0.888 & 0.325 / 0.570 \\
+KNN        & 0.811 / 0.812 & 0.689 / 0.720 & 0.835 / 0.847 & 0.841 / 0.870 & 0.335 / 0.578 \\
+GraphSAGE  & 0.837 / 0.840 & 0.646 / 0.681 & 0.865 / 0.879 & 0.900 / 0.916 & 0.372 / 0.639 \\
+FP         & \textbf{0.864} / 0.862 & 0.720 / 0.744 & 0.893 / 0.899 & 0.887 / 0.907 & 0.439 / 0.673 \\
+PaGCN      & 0.846 / 0.847 & 0.666 / 0.686 & 0.904 / 0.909 & \textbf{0.918} / 0.925 & 0.383 / 0.631 \\
+MATE       & 0.826 / 0.827 & 0.678 / 0.705 & 0.906 / 0.912 & 0.912 / 0.924 & 0.404 / 0.651 \\
+NESS       & 0.842 / 0.836 & \textbf{0.735} / 0.751 & \textbf{0.911} / 0.924 & 0.908 / 0.916 & \textbf{0.454} / 0.676 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}

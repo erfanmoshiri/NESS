@@ -1,21 +1,34 @@
-# E7b — Transferable enhancement: hist (semi-SSL) on other backbones (RQ5)
+# E7b — Transferable enhancement: hist on other backbones (RQ5)
 
-**Reframed:** transfer the objective that actually helps — **hist** (neighbor
-label-histogram, semi-supervised) — onto other GNN backbones, and measure Δ Macro-F1
-(with-hist vs without) under missingness. Shows hist is a *general* semi-SSL enhancement,
-not specific to NESS's architecture.
+Add the hist (neighbor label-histogram, semi-supervised) objective to other GNN
+backbones and measure the change in Test Macro-F1, to test whether the effective
+objective transfers beyond NESS. ogbn-arxiv MCAR @ 80%, 800 epochs. No-hist baselines
+taken from the E6 run at the same rate.
 
-(Original plan transferred path/anchor; changed because structural SSL is only marginal at
-moderate missingness — hist is the objective with a consistent, transferable benefit.)
+**Source:** `experiments/run_e6_e7d_e7b.sh` (E7b stage) →
+`ogbn_benchmarks/results/e7b_transfer_20260725_155804/`; no-hist baselines from
+`results/e6_scalability_20260725_091754/`.
 
-**Backbones:** GraphSAGE, PaGCN (both zero/mask-based GNNs with a trainable encoder).
-Optionally GAT. Non-parametric (NeighAggre/KNN) excluded — no encoder to attach to.
+**Status:** DONE.
 
-**Status:** PENDING — needs the hist objective factored out as a reusable auxiliary loss
-that other backbones' training loops can call.
+## Results — Test Macro-F1 @ 80%
 
-<!-- Table: backbone | F1 no-hist | F1 +hist | ΔF1 | (same for Acc), per missingness rate -->
+| Backbone | no hist | + hist | Δ |
+|---|---|---|---|
+| GraphSAGE | 0.2169 | 0.2291 | +0.012 |
+| PaGCN | 0.2997 | 0.3179 | +0.018 |
 
-**Note:** since hist is semi-supervised (uses observable-node labels at train, none at test —
-see E3), the transfer claim is "semi-SSL enhancement," reported honestly as label-using.
-Consider running at a high rate (0.8/0.9) where the enhancement is most likely to show.
+## Reading
+
+- Adding hist improves **both** backbones (+0.012 GraphSAGE, +0.018 PaGCN), so the
+  label-histogram objective is a transferable enhancement, not specific to the NESS
+  encoder.
+- The gains are modest, consistent with hist being a semi-supervised signal that helps
+  where the backbone is otherwise weak (these zero-fill baselines are low at 80%).
+
+## Framing for the paper
+
+Report as RQ5 evidence: the effective objective (hist) transfers as a drop-in
+enhancement to other backbones, indicating that the benefit is driven by the objective
+rather than by a specific architecture. Note hist is semi-supervised (uses observable
+labels at training; none at inference).

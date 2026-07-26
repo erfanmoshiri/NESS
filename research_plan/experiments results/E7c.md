@@ -1,22 +1,30 @@
-# E7c — Contrastive: regime evaluation (RQ4)
+# E7c — Contrastive design: InfoNCE + PPR view (main setup)
 
-**Reframed.** We are NOT calling contrastive redundant. Instead we characterize its
-regime, like the other SSL components. Current evidence is only at 80% (where
-single_view ≈ no_ssl, and w_con=2 slightly hurt) — but contrastive has **not** been
-evaluated at extreme missingness, where other SSL becomes valuable (cf. E12).
+Our contrastive component uses an **InfoNCE** loss (GRACE-style, node-level, with
+negatives) over a **PPR-diffused second view**, aligning the primary view toward it
+(no view averaging). This is the main NESS contrastive configuration.
 
-**Experiment:** contrastive on vs off (`--w_con` / `--single_view`) across missingness
-{0.6, 0.8, 0.9, 0.95}, locked config. Does the contrastive term's value grow with
-missingness (like hist+path did in E12)?
+**Setup:** locked config (SAGE-3L-128, w_cls=3, dropout 0.3), arxiv MCAR @ 80%,
+800 epochs, view2 = ppr, con\_loss = infonce.
 
-**Status:** PENDING — the run that fairly characterizes contrastive's regime before any
-claim about it.
+**Source:** standalone runs under `ogbn_benchmarks/results/NESS_ogbn-arxiv_MCAR_0.8_*`
+(config: con\_loss=infonce, view2=ppr).
 
-<!-- Table: rate | F1 (contrastive on) | F1 (contrastive off / single_view) | Δ -->
+## Results — Test Macro-F1 @ 80%
 
-**Optional, later:** if contrastive helps in some regime, a loss-function ablation
-(Barlow-Twins vs InfoNCE vs prototype-InfoNCE) becomes worthwhile. Deferred until the
-regime evaluation shows contrastive matters somewhere.
+| Contrastive setup | objectives | Test F1 | Test Acc |
+|---|---|---|---|
+| **InfoNCE + PPR** (averaged views) | anchor | 0.4395 | 0.6577 |
+| **InfoNCE + PPR** (primary-view, no avg) | hist+path | 0.4371 | 0.6552 |
+| Barlow-Twins + PPR (matched config) | anchor / hist+path | *pending* | *pending* |
 
-**Stance:** contrastive is retained as a NESS component; its contribution is stated as
-regime-dependent, pending this evaluation. No "redundant" claim.
+## Reading
+
+- InfoNCE with a PPR view is the contrastive design we adopt.
+- A matched Barlow-Twins control (same locked config, ppr view) is the direct
+  comparison; run pending. Prior Barlow-Twins results on the earlier edge-mask
+  configuration were weaker, motivating the switch to InfoNCE + PPR.
+
+## To do
+- Run Barlow-Twins + ppr on the locked config (anchor and hist+path) to complete the
+  InfoNCE-vs-BT comparison and fill the pending row.

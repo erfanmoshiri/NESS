@@ -1,0 +1,25 @@
+=================================================
+E6 Scalability | ogbn-arxiv | MCAR @ 0.8 | 800 ep
+Started: Sat Jul 25 09:17:54 AM UTC 2026
+=================================================
+  running: NeighAggre ...
+  running: KNN ...
+  running: GraphSAGE ...
+  running: FP ...
+  running: PaGCN ...
+  running: MATE ...
+  running: NESS ...
+
+=================================================
+E6 RESULTS | ogbn-arxiv @ 0.8
+=================================================
+MODEL        TIME(s)      PEAK_MEM(GB)   TEST_F1   
+NeighAggre   46.2         0.48           0.2250    
+KNN          49.0         0.26           0.2913    
+GraphSAGE    358.6        0.14           0.2169    
+FP           369.4        0.43           0.4156    
+PaGCN        400.7        0.20           0.2997    
+MATE         1568.9       1.26           0.4454    
+NESS         2355.4       1.31           0.4377    
+=================================================
+Finished: Sat Jul 25 10:44:07 AM UTC 2026

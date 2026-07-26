@@ -1,28 +1,14 @@
 \section{Method}
 \label{sec:method}
 
-We present \textbf{NESS}, a framework for learning under missing node features.
-NESS is deliberately modular: a feature-propagation prefill and a message-passing
-encoder produce node representations, onto which a set of \emph{pluggable}
-self-supervised objectives is layered. This modularity is intentional---our study
-of \emph{which} objectives help under missingness (Section~\ref{sec:experiments})
-is enabled by treating the auxiliary objective as an interchangeable component
-rather than a fixed part of the architecture.
+We present \textbf{NESS}, a framework for learning under missing node features. NESS is deliberately modular: a feature-propagation prefill and a message-passing encoder produce node representations, onto which a set of \emph{pluggable} self-supervised objectives is layered. This modularity is intentional: our study of \emph{which} objectives help under missingness (Section~\ref{sec:experiments}) is enabled by treating the auxiliary objective as an interchangeable component rather than a fixed part of the architecture.
 
 \subsection{Problem Formulation and Notation}
 \label{sec:method-problem}
 
-Let $G=(V,E,\mathbf{X})$ be an undirected attributed graph with $n=|V|$ nodes,
-edge set $E$, adjacency matrix $\mathbf{A}\in\{0,1\}^{n\times n}$, and feature
-matrix $\mathbf{X}\in\mathbb{R}^{n\times d}$. Each node $v_i$ has a label
-$y_i\in\{1,\dots,C\}$. We denote by $\tilde{\mathbf{A}}=\mathbf{D}^{-1/2}(\mathbf{A}
-+\mathbf{I})\mathbf{D}^{-1/2}$ the symmetrically normalized adjacency with
-self-loops, where $\mathbf{D}$ is the degree matrix.
+Let $G=(V,E,\mathbf{X})$ be an undirected attributed graph with $n=|V|$ nodes, edge set $E$, adjacency matrix $\mathbf{A}\in\{0,1\}^{n\times n}$, and feature matrix $\mathbf{X}\in\mathbb{R}^{n\times d}$. Each node $v_i$ has a label $y_i\in\{1,\dots,C\}$. We denote by $\tilde{\mathbf{A}}=\mathbf{D}^{-1/2}(\mathbf{A}+\mathbf{I})\mathbf{D}^{-1/2}$ the symmetrically normalized adjacency with self-loops, where $\mathbf{D}$ is the degree matrix.
 
-Under \emph{attribute-missing} conditions, the node set partitions into an
-\textbf{observable} set $V_o$ and a \textbf{missing} set $V_m$, with $V_o\cup V_m
-=V$ and $V_o\cap V_m=\emptyset$. For a missing node $v_i\in V_m$, the entire
-feature vector is unobserved; we represent the observed input by zero-filling,
+Under \emph{attribute-missing} conditions, the node set partitions into an \textbf{observable} set $V_o$ and a \textbf{missing} set $V_m$, with $V_o\cup V_m=V$ and $V_o\cap V_m=\emptyset$. For a missing node $v_i\in V_m$, the entire feature vector is unobserved; we represent the observed input by zero-filling,
 \begin{equation}
     \label{eq:mask}
     \bar{\mathbf{x}}_i =
@@ -31,51 +17,29 @@ feature vector is unobserved; we represent the observed input by zero-filling,
         \mathbf{0},   & v_i \in V_m,
     \end{cases}
 \end{equation}
-giving the masked feature matrix $\bar{\mathbf{X}}$. Following the missing-completely-
-at-random (MCAR) mechanism, $V_m$ is sampled uniformly at a rate $\rho=|V_m|/n$.
-The goal is \emph{not} to reconstruct $\mathbf{X}$ but to learn node
-representations $\mathbf{Z}\in\mathbb{R}^{n\times h}$ that support accurate
-classification of the missing nodes $V_m$, measured by macro-F1.
+giving the masked feature matrix $\bar{\mathbf{X}}$. The set $V_m$ is sampled uniformly at random at a rate $\rho=|V_m|/n$. The goal is \emph{not} to reconstruct $\mathbf{X}$ but to learn node representations $\mathbf{Z}\in\mathbb{R}^{n\times h}$ that support accurate classification of the missing nodes $V_m$, measured by macro-F1.
 
 \subsection{Overview}
 \label{sec:method-overview}
 
-NESS comprises four stages (Figure~\ref{fig:overview}): (1)~a \emph{feature-
-propagation prefill} that fills missing rows of $\bar{\mathbf{X}}$ with long-range
-structural signal; (2)~a message-passing \emph{encoder} that maps the prefilled
-features to representations $\mathbf{Z}$; (3)~a \emph{classification head} trained
-on observable labels; and (4)~a set of \emph{self-supervised objectives} that
-shape $\mathbf{Z}$. The total training loss combines the supervised and
-self-supervised terms. We describe each stage below.
+NESS comprises four stages (Figure~\ref{fig:overview}): (1)~a \emph{feature-propagation prefill} that fills missing rows of $\bar{\mathbf{X}}$ with long-range structural signal; (2)~a message-passing \emph{encoder} that maps the prefilled features to representations $\mathbf{Z}$; (3)~a \emph{classification head} trained on observable labels; and (4)~a set of \emph{self-supervised objectives} that shape $\mathbf{Z}$. The total training loss combines the supervised and self-supervised terms. We describe each stage below.
 
 \subsection{Feature-Propagation Prefill}
 \label{sec:method-prefill}
 
-A shallow message-passing encoder starves when a node's neighborhood is largely
-empty, which is precisely the regime induced by high missingness. To supply
-missing nodes with signal before encoding, we prefill $\bar{\mathbf{X}}$ using
-Feature Propagation~[FP]: features are diffused over the graph while observed
-rows are reset to their true values at every step. Starting from
-$\mathbf{H}^{(0)}=\bar{\mathbf{X}}$,
+A shallow message-passing encoder starves when a node's neighborhood is largely empty, which is precisely the regime induced by high missingness. To supply missing nodes with signal before encoding, we prefill $\bar{\mathbf{X}}$ using Feature Propagation~[FP]: features are diffused over the graph while observed rows are reset to their true values at every step. Starting from $\mathbf{H}^{(0)}=\bar{\mathbf{X}}$,
 \begin{equation}
     \label{eq:fp}
     \mathbf{H}^{(t+1)} = \tilde{\mathbf{A}}\,\mathbf{H}^{(t)},
     \qquad
     \mathbf{H}^{(t+1)}_{i,:} = \mathbf{x}_i \;\; \forall\, v_i \in V_o,
 \end{equation}
-iterated for $T$ steps (we use $T=40$). The prefilled matrix
-$\hat{\mathbf{X}}=\mathbf{H}^{(T)}$ replaces $\bar{\mathbf{X}}$ as the encoder
-input. The reset in \eqref{eq:fp} enforces the observed values as boundary
-conditions, so the diffusion solves a Dirichlet energy minimization that
-propagates observed features into missing regions. Prefill is a one-time
-preprocessing step of cost $O(|E|\,d\,T)$.
+iterated for $T$ steps (we use $T=40$). The prefilled matrix $\hat{\mathbf{X}}=\mathbf{H}^{(T)}$ replaces $\bar{\mathbf{X}}$ as the encoder input. The reset in \eqref{eq:fp} enforces the observed values as boundary conditions, so the diffusion solves a Dirichlet energy minimization that propagates observed features into missing regions. Prefill is a one-time preprocessing step of cost $O(|E|\,d\,T)$.
 
 \subsection{Encoder and Views}
 \label{sec:method-encoder}
 
-The encoder $f_\theta$ is an $L$-layer GraphSAGE~[GraphSAGE] network. At layer
-$\ell$, node $v_i$ updates its representation by combining a transform of its own
-state with an aggregate of its neighbors $\mathcal{N}(i)$,
+The encoder $f_\theta$ is an $L$-layer GraphSAGE~[GraphSAGE] network. At layer $\ell$, node $v_i$ updates its representation by combining a transform of its own state with an aggregate of its neighbors $\mathcal{N}(i)$,
 \begin{equation}
     \label{eq:sage}
     \mathbf{h}_i^{(\ell)} = \sigma\!\Big(
@@ -84,14 +48,9 @@ state with an aggregate of its neighbors $\mathcal{N}(i)$,
         \mathrm{mean}_{j\in\mathcal{N}(i)}\,\mathbf{h}_j^{(\ell-1)}
     \Big),
 \end{equation}
-with $\mathbf{h}_i^{(0)}=\hat{\mathbf{x}}_i$ and $\sigma$ a nonlinearity. The
-separate self-transform $\mathbf{W}_{\text{self}}$ preserves each node's own
-(prefilled) signal through depth, which we find important under missingness
-(Section~\ref{sec:experiments}).
+with $\mathbf{h}_i^{(0)}=\hat{\mathbf{x}}_i$ and $\sigma$ a nonlinearity. The separate self-transform $\mathbf{W}_{\text{self}}$ preserves each node's own (prefilled) signal through depth, which we find important under missingness (Section~\ref{sec:experiments}).
 
-To support view-based objectives, we form two stochastic views by independent
-random edge-masking of $G$, encode each, and fuse them into the final
-representation,
+To support view-based objectives, we form two stochastic views by independent random edge-masking of $G$, encode each, and fuse them into the final representation,
 \begin{equation}
     \label{eq:views}
     \mathbf{Z}^{(1)} = f_\theta(\hat{\mathbf{X}}, G^{(1)}),\quad

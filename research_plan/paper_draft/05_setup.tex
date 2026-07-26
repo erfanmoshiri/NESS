@@ -1,0 +1,32 @@
+\section{Experimental Setup}
+\label{sec:setup}
+
+\paragraph{Datasets.} We evaluate on five node-classification benchmarks. Four are small citation and co-purchase graphs with sparse binary bag-of-words attributes---Cora, CiteSeer, Amazon-Computers (AMAC), and Amazon-Photo (AMAP)---and one is a large graph with dense, continuous features, ogbn-arxiv (169K nodes, 128-dimensional embeddings). Their statistics are summarized in Table~\ref{tab:datasets}. This spread lets us study behavior across both feature regimes (sparse binary vs.\ dense continuous) and scales.
+
+\paragraph{Missingness protocol.} We simulate attribute-missing conditions by selecting a fraction $\rho$ of nodes uniformly at random and removing their entire feature vector (zero-filled). The masked nodes are split evenly into validation and test sets; the remaining observable nodes form the training set. The classification loss is computed only on observable-node labels, so no label or feature information from the evaluated nodes leaks into training. We use $\rho=0.4$ for the main comparison and sweep $\rho \in \{0.2,0.4,0.6,0.8,0.9,0.95\}$ for the robustness analysis.
+
+\paragraph{Metrics.} We report macro-F1 (primary) and accuracy on the masked test nodes. All results are averaged over three random seeds.
+
+\paragraph{Methods compared.} We compare NESS against baselines spanning every category of the missing-feature landscape: non-parametric imputation (NeighAggre, KNN), scalable propagation imputation (Feature Propagation, FP), an imputation-free work-around (PaGCN), per-node parameterization (MATE), and a standard zero-filled GNN (GraphSAGE).
+
+\paragraph{Fair comparison.} All learnable methods are trained under an identical budget and protocol: the same number of epochs (800, with early stopping on validation macro-F1, patience of 20 evaluation intervals), the same optimizer (Adam), the same per-dataset learning rate, the same hidden width (128), and the same missingness splits and seeds. Comparisons therefore reflect the methods themselves rather than differences in tuning. The learning rate is $10^{-3}$ for the large and denser graphs (ogbn-arxiv, AMAC), where a higher rate is unstable, and $10^{-2}$ for the remaining small graphs, applied uniformly to every method on a given dataset.
+
+\paragraph{NESS configuration.} Unless otherwise noted, NESS uses a three-layer GraphSAGE encoder of hidden width 128, Feature-Propagation prefill (40 iterations), a personalized-PageRank second view with a Barlow-Twins contrastive term, and the label-histogram and multi-hop reachability self-supervised objectives. Dropout is 0.3. The loss weights place higher emphasis on the classification term (Section~\ref{sec:experiments} reports the selection). Large graphs are trained with cluster-based batching (METIS partitioning); small graphs are trained full-batch. Self-supervised targets that depend on global structure are computed once on the full graph and indexed per cluster.
+
+\begin{table}[t]
+\centering
+\caption{Dataset statistics. The first four are small graphs with sparse binary bag-of-words attributes; ogbn-arxiv is a large graph with dense continuous features.}
+\label{tab:datasets}
+\small
+\begin{tabular}{@{}lrrrrl@{}}
+\toprule
+\textbf{Dataset} & \textbf{Nodes} & \textbf{Edges} & \textbf{Features} & \textbf{Classes} & \textbf{Feature type} \\
+\midrule
+Cora        & 2{,}708     & 5{,}429       & 1{,}433 & 7 & binary BoW \\
+CiteSeer    & 3{,}327     & 4{,}732       & 3{,}703 & 6 & binary BoW \\
+AMAP        & 7{,}650     & 119{,}081     & 745     & 8 & binary BoW \\
+AMAC        & 13{,}752    & 245{,}861     & 767     & 10 & binary BoW \\
+ogbn-arxiv  & 169{,}343   & 1{,}166{,}243 & 128     & 40 & dense embedding \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,17 @@
+=================================================
+Prefill ablation | NESS | ogbn-arxiv | MCAR @ 0.8 | view2=ppr, 800 ep
+Started: Sat Jul 25 04:02:32 PM UTC 2026
+=================================================
+  running: prefill=fp ...
+  running: prefill=zero ...
+  running: prefill=mean ...
+
+=================================================
+PREFILL RESULTS | ogbn-arxiv @ 0.8
+=================================================
+PREFILL    VAL_F1     TEST_F1    TEST_ACC  
+fp         0.4492     0.4466     0.6597    
+zero       0.3471     0.3497     0.5817    
+mean       0.4249     0.4205     0.6377    
+=================================================
+Finished: Sat Jul 25 04:43:48 PM UTC 2026

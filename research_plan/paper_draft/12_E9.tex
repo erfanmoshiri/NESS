@@ -1,0 +1,25 @@
+\subsection{The Feature Regime}
+\label{sec:exp-regime}
+
+The benefit of self-supervision also depends on the type of node features. Neighborhood-centric objectives are built from aggregates of neighbor features, which are informative only when the features themselves are informative under aggregation. To test this, we apply the two label- and structure-based objectives (hist and its classification variant) to the four small graphs, whose attributes are sparse binary bag-of-words vectors, and compare the resulting lift to that observed on the dense-embedding graph ogbn-arxiv. Table~\ref{tab:regime} reports test macro-F1 at $80\%$ missingness.
+
+On the sparse binary graphs the objectives provide essentially no benefit: the change relative to the no-SSL baseline is within $\pm 0.01$ on all four datasets, with no consistent direction. This contrasts sharply with the dense-embedding graph, where the same label-aware objective improves macro-F1 by $0.020$. The explanation is mechanistic: neighborhood-centric targets require averaging neighbor features, which yields a meaningful, predictable signal for dense continuous attributes but is close to noise for sparse binary indicators. Neighborhood self-supervision is therefore effective in the dense-feature regime, which is both the practically prevalent one and the setting on which we focus.
+
+\begin{table}[t]
+\centering
+\caption{Self-supervision on sparse binary graphs (test macro-F1 at $80\%$ missingness, three seeds), with the dense-embedding result (ogbn-arxiv) for reference. On binary attributes the change over no-SSL is within noise; on dense features it is clearly positive.}
+\label{tab:regime}
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Dataset} & \textbf{Features} & \textbf{no-SSL} & \textbf{$\Delta$ with SSL} \\
+\midrule
+Cora        & binary  & 0.798 & $-0.000$ \\
+CiteSeer    & binary  & 0.595 & $+0.002$ \\
+AMAC        & binary  & 0.863 & $-0.005$ \\
+AMAP        & binary  & 0.876 & $+0.000$ \\
+\midrule
+ogbn-arxiv  & dense   & 0.424 & $+0.020$ \\
+\bottomrule
+\end{tabular}
+\end{table}

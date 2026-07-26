@@ -268,6 +268,46 @@ def _barlow_twins(z1, z2, lambda_param=0.005):
     return (on_diag + lambda_param * off_diag) / D
 
 
+def _info_nce(z1, z2, temp=0.5, max_nodes=8192):
+    # GRACE-style node-level InfoNCE: same node across views = positive; all other
+    # nodes = negatives. Subsample rows for tractable N x N similarity.
+    N = z1.size(0)
+    if N > max_nodes:
+        idx = torch.randperm(N, device=z1.device)[:max_nodes]
+        z1, z2 = z1[idx], z2[idx]
+        N = max_nodes
+    h1 = F.normalize(z1, dim=1)
+    h2 = F.normalize(z2, dim=1)
+    sim = torch.mm(h1, h2.t()) / temp          # [N, N]
+    labels = torch.arange(N, device=z1.device)
+    # symmetric: view1->view2 and view2->view1
+    return 0.5 * (F.cross_entropy(sim, labels) + F.cross_entropy(sim.t(), labels))
+
+
+def _proto_info_nce(z1, z2, y, obs_mask, num_classes, temp=0.5):
+    # Class-aware (D2PT-style) contrastive: build per-class prototypes from OBSERVABLE
+    # nodes in each view, contrast class-j prototype across views (positive) vs other
+    # classes (negatives). Semi-supervised; O(C^2) not O(N^2). No leakage (obs only).
+    idx = obs_mask.nonzero(as_tuple=True)[0]
+    if idx.numel() == 0:
+        return z1.new_zeros(())
+    yo = y[idx]
+    h1 = F.normalize(z1[idx], dim=1)
+    h2 = F.normalize(z2[idx], dim=1)
+    C, D = num_classes, h1.size(1)
+    oh = F.one_hot(yo, C).float()                      # [n_obs, C]
+    cnt = oh.sum(0).clamp(min=1).unsqueeze(1)          # [C,1]
+    p1 = F.normalize((oh.t() @ h1) / cnt, dim=1)       # [C, D] class prototypes, view1
+    p2 = F.normalize((oh.t() @ h2) / cnt, dim=1)       # [C, D] view2
+    present = oh.sum(0) > 0
+    if present.sum() < 2:
+        return z1.new_zeros(())
+    p1, p2 = p1[present], p2[present]                  # [C', D] present classes only
+    sim = torch.mm(p1, p2.t()) / temp                  # [C', C']
+    labels = torch.arange(p1.size(0), device=z1.device)
+    return 0.5 * (F.cross_entropy(sim, labels) + F.cross_entropy(sim.t(), labels))
+
+
 def _build_model(num_features, num_classes, encoder_channels, hidden, decoder_channels,
                  dropout, p, device, encoder_layer='gcn', num_layers=2):
     encoder = GNNEncoder(num_features, encoder_channels, hidden,
@@ -294,6 +334,8 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
                encoder_layer='gcn',      # encoder conv type: gcn / sage / gat
                num_layers=2,             # encoder depth (message-passing layers)
                single_view=False,        # ablation: one view only (forces w_con=0; no two-view structure)
+               con_loss='barlow',         # contrastive loss: 'barlow' or 'infonce'
+               no_view_avg=False,         # z=z1 (primary) instead of (z1+z2)/2; contrastive still pulls z1<->z2
                ssl_proj_head=False,       # SimCLR-style: SSL objectives act on proj(z), cls uses z directly
                ssl_warmup=0,              # epochs of SSL-first: cls ramps 0->1 over these epochs (SSL shapes z first)
                ppr_on_raw=True,          # ppr view diffuses raw zero-filled feats (True) vs FP-prefilled (False)
@@ -362,6 +404,22 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
         ).cpu()
         # Keep observable rows exact; fill only masked rows with propagated values
         masked_features[masked_id] = propagated[masked_id.cpu()]
+
+    elif prefill == 'mean':
+        # Fill missing nodes with the mean of their OBSERVED neighbors (one hop of
+        # neighbor averaging), a simple baseline prefill vs FP's iterative diffusion.
+        print('  Prefilling missing nodes via observed-neighbor mean...')
+        ei = graph.edge_index
+        obs_bool = torch.zeros(num_nodes, dtype=torch.bool)
+        obs_bool[observable_id.cpu()] = True
+        obs_feat = masked_features.clone()  # observed rows real, missing rows zero
+        vals = torch.ones(ei.size(1))
+        A = torch.sparse_coo_tensor(ei, vals, (num_nodes, num_nodes)).coalesce()
+        obs_ind = obs_bool.float().unsqueeze(1)                       # [N,1]
+        nbr_sum = torch.sparse.mm(A, obs_feat)                        # sum of observed-neighbor feats
+        nbr_cnt = torch.sparse.mm(A, obs_ind).clamp(min=1)           # count of observed neighbors
+        nbr_mean = nbr_sum / nbr_cnt
+        masked_features[masked_id] = nbr_mean[masked_id.cpu()]
 
     # SSL targets (once, on full graph) — only compute if a feature-neighborhood
     # objective (stats/centroid) is actually active (they are fixed-input negatives).
@@ -546,7 +604,7 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
                 view2, c['x'], edge_index, c['num_nodes'], encoder, mask_edge, device,
                 deep_encoder=deep_encoder, x_raw=c.get('x_raw'), ppr_cache=ppr_cache,
                 single_view=single_view)
-            z = (z1 + z2) * 0.5
+            z = z1 if no_view_avg else (z1 + z2) * 0.5
 
             num_neg = min(masked_edges.size(1), 50000)
             neg_edges = negative_sampling(c['aug_edge_index'], num_nodes=c['num_nodes'],
@@ -572,11 +630,17 @@ def train_NESS(graph, features, labels, observable_id, masked_id, vali_id, test_
                 F.binary_cross_entropy_with_logits(neg2, torch.zeros_like(neg2))
             ) / 4
 
-            loss_con = _barlow_twins(z1, z2)
-
             # Classification — observable nodes only (no label leakage)
             y = c['y'].squeeze() if c['y'].dim() > 1 else c['y']
             obs = c['obs_mask']
+
+            if con_loss == 'infonce':
+                loss_con = _info_nce(z1, z2)
+            elif con_loss == 'proto':
+                loss_con = _proto_info_nce(z1, z2, y, obs, num_classes)
+            else:
+                loss_con = _barlow_twins(z1, z2)
+
             logits = model.forward_classifier(z)
             loss_cls = F.cross_entropy(logits[obs], y[obs])
 

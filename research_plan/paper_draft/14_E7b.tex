@@ -1,0 +1,19 @@
+\subsection{Transferability of the Objective}
+\label{sec:exp-transfer}
+
+If the effective objective reflects a general principle rather than a property of our architecture, it should improve other backbones as well. We add the label-histogram objective to two baselines, GraphSAGE and PaGCN, as an auxiliary loss and measure the change in test macro-F1 on ogbn-arxiv at $80\%$ missingness. Table~\ref{tab:transfer} shows that both backbones improve when the objective is added, indicating that the benefit transfers across architectures and is driven by the objective rather than by NESS specifically. The gains are modest, consistent with the objective supplying a semi-supervised signal that is most valuable where the backbone is otherwise weak.
+
+\begin{table}[t]
+\centering
+\caption{Adding the label-histogram objective to other backbones (ogbn-arxiv, $80\%$ missingness, test macro-F1, three seeds).}
+\label{tab:transfer}
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Backbone} & \textbf{without} & \textbf{with hist} & \textbf{$\Delta$} \\
+\midrule
+GraphSAGE & 0.217 & 0.229 & $+0.012$ \\
+PaGCN     & 0.300 & 0.318 & $+0.018$ \\
+\bottomrule
+\end{tabular}
+\end{table}

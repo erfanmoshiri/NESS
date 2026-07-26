@@ -1,0 +1,24 @@
+=================================================
+E7 View Ablation | NESS | ogbn-arxiv | MCAR @ 0.8
+SSL = hist path (contrastive ON) | epochs=800 patience=20
+Started: Sun Jul 26 11:41:17 AM UTC 2026
+=================================================
+  running: view2=edge_mask ...
+  running: view2=dropout ...
+  running: view2=feat_mask ...
+  running: view2=ppr ...
+  running: view2=prefill_contrast ...
+  running: view2=deep ...
+
+=================================================
+E7 RESULTS | NESS | ogbn-arxiv | MCAR @ 0.8 | SSL=hist+path
+=================================================
+VIEW2              VAL_F1     TEST_F1    TEST_ACC  
+edge_mask          0.4532     0.4490     0.6608    
+dropout            0.4431     0.4428     0.6579    
+feat_mask          0.4019     0.4047     0.6347    
+ppr                0.4398     0.4358     0.6584    
+prefill_contrast   0.4275     0.4305     0.6510    
+deep               0.4196     0.4228     0.6499    
+=================================================
+Finished: Sun Jul 26 12:57:30 PM UTC 2026

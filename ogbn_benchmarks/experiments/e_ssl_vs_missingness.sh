@@ -18,7 +18,7 @@ MISSINGNESS=MCAR
 EPOCHS=800
 PATIENCE=20
 NUM_PARTS=20
-RATES=(0.9 0.95)   # 0.8 already have from E3: no_ssl 0.3748 / anchor 0.3860 / hist+path 0.3906
+RATES=(0.8 0.9 0.95)   # full curve on the locked config for a self-contained E12
 
 STAMP=$(date +%Y%m%d_%H%M%S)
 LOGROOT="results/e_sslmiss_${STAMP}"

@@ -1,0 +1,29 @@
+\subsection{Which Objectives Help}
+\label{sec:exp-objectives}
+
+We next study the self-supervised objectives themselves. Holding the encoder and all other components fixed, we train NESS with one objective at a time and with the combined default (hist + path), and compare against a no-SSL baseline (classification only) and a single-view variant that removes the second view and the contrastive term. Table~\ref{tab:objectives} reports test macro-F1 on ogbn-arxiv at $80\%$ missingness.
+
+Self-supervision helps in most configurations: all but one objective improve over the no-SSL baseline, and the combined set (hist + path) is best, improving macro-F1 by $0.022$. The label-aware neighbor-histogram (hist) is the strongest single objective ($+0.020$), followed by feature reconstruction ($+0.017$); the structural and feature-statistic objectives give smaller positive lifts, and only the neighbor-spread objective (stats) is marginally negative. The usefulness of feature reconstruction is consistent with our prior work on feature-based self-supervision for imputation~[NCSSL]. Removing the second view and contrastive term (single-view) yields the weakest configuration, below even no-SSL, indicating that the two-view contrastive structure itself contributes. The objectives thus differ substantially in how much they help; Section~\ref{sec:exp-why} identifies the property that explains this spread.
+
+\begin{table}[t]
+\centering
+\caption{Objective ablation on ogbn-arxiv at $80\%$ missingness (test macro-F1, three seeds). Each row activates one objective (or the combined set); single-view removes the second view and contrastive term. $\Delta$ is relative to the no-SSL baseline.}
+\label{tab:objectives}
+\small
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Configuration} & \textbf{Test F1} & \textbf{$\Delta$ vs.\ no-SSL} \\
+\midrule
+hist + path (default) & \textbf{0.447} & $+0.022$ \\
+hist                  & 0.444 & $+0.020$ \\
+recon                 & 0.441 & $+0.017$ \\
+path                  & 0.432 & $+0.007$ \\
+centroid              & 0.431 & $+0.007$ \\
+anchor                & 0.429 & $+0.004$ \\
+no-SSL (cls only)     & 0.424 & (baseline) \\
+triplet               & 0.422 & $-0.002$ \\
+stats                 & 0.421 & $-0.003$ \\
+single-view           & 0.416 & $-0.009$ \\
+\bottomrule
+\end{tabular}
+\end{table}

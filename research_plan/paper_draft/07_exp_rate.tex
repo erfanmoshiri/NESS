@@ -1,0 +1,24 @@
+\subsection{Robustness to Missingness Rate}
+\label{sec:exp-rate}
+
+To assess how each method behaves as features become increasingly scarce, we vary the missing rate $\rho$ from $0.2$ to $0.9$ on ogbn-arxiv and measure test macro-F1 on the masked nodes. Table~\ref{tab:rate} reports the results, averaged over three seeds, for NESS and the strongest baselines from Section~\ref{sec:exp-main}.
+
+NESS attains the highest macro-F1 at every rate except $0.6$, where MATE is marginally higher ($0.458$ versus $0.449$). More importantly, its performance is the most stable across the range, declining only from $0.449$ at $\rho=0.2$ to $0.415$ at $\rho=0.9$. The baselines degrade substantially more over the same interval: FP falls from $0.442$ to $0.354$, PaGCN from $0.402$ to $0.256$, and KNN from $0.345$ to $0.258$. Consequently, the margin in favor of NESS widens as missingness increases, and it is largest at the most severe rate ($0.415$ versus $0.378$ for MATE and $0.354$ for FP at $\rho=0.9$). This indicates that the advantage of NESS is most pronounced precisely in the regime where the problem is hardest and where features are least available.
+
+\begin{table}[t]
+\centering
+\caption{Test macro-F1 on ogbn-arxiv as a function of the missing rate $\rho$, averaged over three seeds. Best per rate in \textbf{bold}.}
+\label{tab:rate}
+\small
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+$\rho$ & \textbf{KNN} & \textbf{FP} & \textbf{PaGCN} & \textbf{MATE} & \textbf{NESS} \\
+\midrule
+0.2 & 0.345 & 0.442 & 0.402 & 0.387 & \textbf{0.449} \\
+0.4 & 0.335 & 0.437 & 0.384 & 0.394 & \textbf{0.467} \\
+0.6 & 0.317 & 0.437 & 0.355 & \textbf{0.458} & 0.449 \\
+0.8 & 0.291 & 0.415 & 0.302 & 0.442 & \textbf{0.444} \\
+0.9 & 0.258 & 0.354 & 0.256 & 0.378 & \textbf{0.415} \\
+\bottomrule
+\end{tabular}
+\end{table}

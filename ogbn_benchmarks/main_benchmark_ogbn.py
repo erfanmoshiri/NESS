@@ -130,6 +130,15 @@ def main():
                         help="SimCLR-style projection head: SSL objectives act on proj(z), "
                              "while classification uses z directly (decouples pretext geometry "
                              "from the downstream representation).")
+    parser.add_argument('--no_view_avg', action='store_true',
+                        help="Use z=z1 (primary view) for cls+SSL instead of averaging views; "
+                             "contrastive still pulls z1 toward z2 (GRACE-style, not fusion).")
+    parser.add_argument('--con_loss', type=str, default='barlow', choices=['barlow', 'infonce', 'proto'],
+                        help="Contrastive loss: barlow, infonce (GRACE-style), or proto "
+                             "(class-aware prototype InfoNCE, D2PT-style, semi-supervised).")
+    parser.add_argument('--aux_hist', action='store_true',
+                        help="E7b: add the hist (neighbor label-histogram) auxiliary objective "
+                             "to a baseline backbone (GraphSAGE / PaGCN) to test transfer.")
     parser.add_argument('--single_view', action='store_true',
                         help="Ablation: build ONE contrastive view (z1==z2). Removes the "
                              "two-view structure and forces contrastive off. Tests whether "
@@ -144,7 +153,7 @@ def main():
                         help='Where to hold the cluster cache. cpu=frugal (1 cluster on '
                              'GPU at a time, works in tight memory); gpu=fast (all clusters '
                              'preloaded on GPU, needs full capacity).')
-    parser.add_argument('--prefill', type=str, default='fp', choices=['zero', 'fp'],
+    parser.add_argument('--prefill', type=str, default='fp', choices=['zero', 'fp', 'mean'],
                         help='NESS missing-node init: fp (Feature Propagation, default) or zero.')
     parser.add_argument('--fp_iterations', type=int, default=40,
                         help='Number of Feature-Propagation prefill iterations (NESS).')
@@ -248,6 +257,9 @@ def main():
             epochs=args.epochs,
             patience=args.patience,
             batch_size=args.batch_size,
+            aux_hist=args.aux_hist,
+            w_hist=args.w_hist,
+            ssl_hops=args.ssl_hops,
             log_path=log_path,
             weights_path=weights_path,
         )
@@ -282,6 +294,9 @@ def main():
             epochs=args.epochs,
             patience=args.patience,
             num_parts=args.num_parts,
+            aux_hist=args.aux_hist,
+            w_hist=args.w_hist,
+            ssl_hops=args.ssl_hops,
             log_path=log_path,
             weights_path=weights_path,
         )
@@ -308,6 +323,8 @@ def main():
             encoder_layer=args.encoder_layer,
             num_layers=args.num_layers,
             single_view=args.single_view,
+            con_loss=args.con_loss,
+            no_view_avg=args.no_view_avg,
             ssl_proj_head=args.ssl_proj_head,
             ssl_warmup=args.ssl_warmup,
             ppr_on_raw=not args.ppr_on_prefilled,
@@ -380,12 +397,14 @@ def main():
             pickle.dump(clf, wf)
 
     elapsed = time.time() - start
+    peak_mem_gb = (torch.cuda.max_memory_allocated(device) / 1e9) if args.cuda else 0.0
 
     print('\n' + '=' * 70)
     print(f'  Val  Macro-F1: {val_f1:.4f}')
     print(f'  Test Macro-F1: {test_f1:.4f}')
     print(f'  Test Accuracy: {test_acc:.4f}')
     print(f'  Time: {elapsed:.1f}s')
+    print(f'  Peak GPU mem: {peak_mem_gb:.2f} GB')
     print('=' * 70)
 
     results = {
@@ -398,6 +417,7 @@ def main():
         'test_f1_macro': test_f1,
         'test_accuracy': test_acc,
         'train_time_s': round(elapsed, 1),
+        'peak_gpu_mem_gb': round(peak_mem_gb, 2),
     }
     with open(os.path.join(run_dir, 'final_results.json'), 'w') as f:
         json.dump(results, f, indent=2)
