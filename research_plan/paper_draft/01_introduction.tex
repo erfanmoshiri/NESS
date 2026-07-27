@@ -15,10 +15,9 @@ Beyond the method, our central contribution is a systematic study of self-superv
 
 Our contributions are as follows:
 \begin{itemize}
-    \item \textbf{A method (NESS)} combining Feature-Propagation prefill with self-supervised objectives on a well-configured encoder, outperforming imputation-based, imputation-free, and per-node-parameter baselines on downstream node classification under missingness, at scale.
-    \item \textbf{A study of when and why self-supervision helps under missingness}: its benefit generally holds but is modulated by missingness severity and by the objective's characteristics, which we analyze rather than assume.
-    \item \textbf{A label-aware objective} (neighbor label-histogram) that is the most reliable objective in this setting and transfers as an enhancement to other GNN backbones.
-    \item \textbf{An explicit regime analysis} (dense-embedding vs.\ sparse binary attributes) delineating where neighborhood-centric self-supervision is effective, and motivating evaluation on large dense-embedding graphs.
+    \item We introduce NESS, a graph neural network for learning under missing node features that couples a Feature-Propagation prefill with pluggable self-supervised objectives on a well-configured encoder, outperforming imputation-based, imputation-free, and per-node-parameter baselines on downstream node classification, with the largest advantage under severe missingness and at a scale where generative imputation is infeasible.
+    \item We provide a systematic study of when and why self-supervision helps under missingness, showing that its benefit generally holds but is modulated by the severity of missingness, the type of features, and the characteristics of the objective, which we analyze rather than assume.
+    \item We identify a label-aware neighbor-histogram objective as the most reliable choice in this setting, and show that it transfers as an enhancement to other GNN backbones.
 \end{itemize}
 
-The remainder of the paper is organized as follows. Section~\ref{sec:related} reviews learning under missing node features and self-supervised graph representation learning. Section~\ref{sec:method} presents NESS and its objectives. Section~\ref{sec:experiments} reports the main comparison, the analysis of when self-supervision helps, and the robustness and regime studies. Section~\ref{sec:discussion} discusses implications and limitations, and Section~\ref{sec:conclusion} concludes.
+In the following sections we review related work on graph learning under weak information (Section~\ref{sec:related}), discuss the different self-supervised objectives used in graph learning (Section~\ref{sec:ssl-objectives}), introduce our method (Section~\ref{sec:method}), and conduct comprehensive experiments to address our research questions (Section~\ref{sec:experiments}).

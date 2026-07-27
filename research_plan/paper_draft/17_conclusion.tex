@@ -1,0 +1,6 @@
+\section{Conclusion}
+\label{sec:conclusion}
+
+We introduced NESS, a model for learning under missing node features that couples a Feature-Propagation prefill with pluggable self-supervised objectives on a well-configured encoder, outperforming imputation-based, imputation-free, and per-node-parameter baselines on downstream node classification, most notably under severe missingness and at scale. 
+
+We further present an analysis of when self-supervision is beneficial in this setting. Self-supervision is generally helpful, yet the magnitude of its benefit is governed by the severity of missingness and by the characteristics of the objective, with more class-relevant and less trivially predictable targets yielding larger gains. The label-aware neighbor-histogram is the most reliable objective and transfers to other backbones. These findings give a principled basis for choosing self-supervision under missing node features; extending the analysis to structured missingness, other downstream tasks, and a pre-training measure of objective usefulness is left to future work.
