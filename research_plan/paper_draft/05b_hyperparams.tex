@@ -1,0 +1,44 @@
+\subsection{Hyperparameters and Design Choices}
+\label{sec:setup-hparams}
+
+Table~\ref{tab:hparams} lists the full NESS configuration used in all experiments, grouped by the two feature regimes: the large dense-embedding graph (ogbn-arxiv) and the small sparse binary bag-of-words graphs (Cora, CiteSeer, AMAP, AMAC). The architecture, self-supervised objectives, and loss weights are shared across both regimes; the settings that differ are the learning rate and the use of cluster-based batching, both dictated by graph scale rather than by tuning. These values were selected once on ogbn-arxiv (Section~\ref{sec:exp-design}) and held fixed thereafter.
+
+\begin{table}[t]
+\centering
+\caption{NESS hyperparameters and design choices. The architecture and objectives are shared; only the scale-dependent settings (learning rate, batching) differ between regimes.}
+\label{tab:hparams}
+\small
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Setting} & \textbf{ogbn-arxiv} & \textbf{Binary BoW graphs} \\
+ & (dense) & (Cora/CiteSeer/AMAP/AMAC) \\
+\midrule
+\multicolumn{3}{@{}l}{\emph{Architecture}} \\
+Prefill                & Feature Propagation & Feature Propagation \\
+Prefill iterations $T$ & 40 & 40 \\
+Encoder                & GraphSAGE & GraphSAGE \\
+Layers $L$             & 3 & 3 \\
+Hidden width $h$       & 128 & 128 \\
+Dropout                & 0.3 & 0.3 \\
+\midrule
+\multicolumn{3}{@{}l}{\emph{Views and objectives}} \\
+View 1 / View 2        & edge-mask / edge-mask & edge-mask / edge-mask \\
+View fusion            & average & average \\
+Contrastive            & Barlow-Twins & Barlow-Twins \\
+SSL objectives         & hist + path & hist + path \\
+\midrule
+\multicolumn{3}{@{}l}{\emph{Loss weights}} \\
+$w_{\text{cls}}$       & 3.0 & 3.0 \\
+$w_{\text{edge}}$      & 1.0 & 1.0 \\
+$w_{\text{con}}$       & 0.5 & 0.5 \\
+$w_{\text{ssl}}$ (hist, path) & 1.0, 1.0 & 1.0, 1.0 \\
+\midrule
+\multicolumn{3}{@{}l}{\emph{Optimization}} \\
+Optimizer              & Adam & Adam \\
+Learning rate          & $10^{-3}$ & $10^{-2}$ ($10^{-3}$ for AMAC) \\
+Epochs                 & 800 & 800 \\
+Early stopping         & val macro-F1, patience 20 & val macro-F1, patience 20 \\
+Batching               & cluster-based (METIS) & full-batch \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,14 +1,1 @@
-Our prior work~[NCSSL] introduced neighborhood-centric self-supervision for graph
-attribute \emph{imputation}, where predicting neighborhood structure directly aids
-the recovery of missing feature values. In this paper we ask a distinct question:
-does that auxiliary signal also improve the \emph{downstream classification}
-boundary, and under what conditions? These are different objectives---faithful
-feature reconstruction is neither necessary nor sufficient for an accurate
-decision boundary---so the answer is not implied by the earlier result. We find
-that the transfer of neighborhood self-supervision from reconstruction to
-downstream utility is \textbf{regime-dependent}: it is most valuable on
-\textbf{dense-embedding} graphs and under \textbf{scarce} observations, while on
-sparse binary attributes the neighborhood targets that aid reconstruction carry
-little class-discriminative signal. This delineates \emph{where} neighborhood
-self-supervision transfers to the downstream task, extending---rather than
-overturning---the earlier framework.
+Our prior work~[NCSSL] introduced neighborhood-centric self-supervision for graph attribute \emph{imputation}, where predicting neighborhood structure directly aids the recovery of missing feature values. In this paper we ask a distinct question: does that auxiliary signal also improve the \emph{downstream classification} boundary, and under what conditions? These are different objectives: faithful feature reconstruction is neither necessary nor sufficient for an accurate decision boundary, so the answer is not implied by the earlier result. We find that neighborhood self-supervision generally helps for the downstream task, but the size of its benefit depends on the setting, being most pronounced on dense-embedding graphs and under scarce observations. This delineates \emph{where} neighborhood self-supervision transfers to the downstream task, extending, rather than overturning, the earlier framework.

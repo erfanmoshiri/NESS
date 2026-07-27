@@ -57,15 +57,12 @@ To support view-based objectives, we form two stochastic views by independent ra
     \mathbf{Z}^{(2)} = f_\theta(\hat{\mathbf{X}}, G^{(2)}),\quad
     \mathbf{Z} = \tfrac{1}{2}\big(\mathbf{Z}^{(1)}+\mathbf{Z}^{(2)}\big),
 \end{equation}
-where $G^{(1)},G^{(2)}$ are edge-masked variants of $G$. The fused $\mathbf{Z}$ is
-used by the classification head and all objectives.
+where $G^{(1)},G^{(2)}$ are edge-masked variants of $G$. The fused $\mathbf{Z}$ is used by the classification head and all objectives.
 
 \subsection{Learning Objectives}
 \label{sec:method-objectives}
 
-\paragraph{Classification.}
-A head $g_\phi$ maps representations to class logits, trained with cross-entropy on
-\emph{observable} nodes only (no label leakage to $V_m$),
+\paragraph{Classification.} A head $g_\phi$ maps representations to class logits, trained with cross-entropy on \emph{observable} nodes only (no label leakage to $V_m$),
 \begin{equation}
     \label{eq:cls}
     \mathcal{L}_{\text{cls}}
@@ -73,10 +70,7 @@ A head $g_\phi$ maps representations to class logits, trained with cross-entropy
       \mathrm{CE}\big(g_\phi(\mathbf{z}_i),\, y_i\big).
 \end{equation}
 
-\paragraph{Edge reconstruction.}
-A structural objective encourages $\mathbf{Z}$ to preserve connectivity. Using an
-edge decoder $\psi$, positive (observed) edges are contrasted against sampled
-negatives $E^-$,
+\paragraph{Edge reconstruction.} A structural objective encourages $\mathbf{Z}$ to preserve connectivity. Using an edge decoder $\psi$, positive (observed) edges are contrasted against sampled negatives $E^-$,
 \begin{equation}
     \label{eq:edge}
     \mathcal{L}_{\text{edge}}
@@ -84,10 +78,7 @@ negatives $E^-$,
       -\!\!\sum_{(i,j)\in E^-}\!\!\log\big(1-\sigma(\psi(\mathbf{z}_i,\mathbf{z}_j))\big).
 \end{equation}
 
-\paragraph{Contrastive (view agreement).}
-We align the two views with a redundancy-reduction (Barlow-Twins~[BarlowTwins])
-objective on their cross-correlation matrix $\mathcal{C}$, computed over the batch
-dimension of the projected views,
+\paragraph{Contrastive (view agreement).} We align the two views with a redundancy-reduction (Barlow-Twins~[BarlowTwins]) objective on their cross-correlation matrix $\mathcal{C}$, computed over the batch dimension of the projected views,
 \begin{equation}
     \label{eq:con}
     \mathcal{L}_{\text{con}}
@@ -95,24 +86,9 @@ dimension of the projected views,
       + \lambda \sum_{k}\sum_{k'\neq k}\mathcal{C}_{kk'}^2 .
 \end{equation}
 
-\paragraph{Self-supervised auxiliary objective.}
-The distinctive component of NESS is a pluggable self-supervised objective
-$\mathcal{L}_{\text{ssl}}$ that shapes $\mathbf{Z}$ using structure- or
-label-derived targets requiring no missing-node features. Rather than committing
-to a single objective, we treat $\mathcal{L}_{\text{ssl}}$ as an interchangeable
-component and study a family of candidates spanning distinct design axes:
-\emph{feature-neighborhood} (predict the neighborhood mean or spread),
-\emph{feature-reconstruction} (masked-feature recovery), \emph{structural}
-(multi-hop reachability, distance ranking, anchor-distance to landmarks), and
-\emph{label-based} (neighbor label-histogram, semi-supervised). Each is defined
-formally in the preliminaries (Section~\ref{sec:preliminaries}); their comparative
-analysis---which objectives help, and when---is the subject of
-Section~\ref{sec:experiments}. Our reported model instantiates
-$\mathcal{L}_{\text{ssl}}$ with the label-histogram and multi-hop reachability
-objectives.
+\paragraph{Self-supervised auxiliary objective.} The distinctive component of NESS is a pluggable self-supervised objective $\mathcal{L}_{\text{ssl}}$ that shapes $\mathbf{Z}$ using structure- or label-derived targets requiring no missing-node features. Rather than committing to a single objective, we treat $\mathcal{L}_{\text{ssl}}$ as an interchangeable component and study a family of candidates spanning distinct design axes: \emph{feature-neighborhood} (predict the neighborhood mean or spread), \emph{feature-reconstruction} (masked-feature recovery), \emph{structural} (multi-hop reachability, distance ranking, anchor-distance to landmarks), and \emph{label-based} (neighbor label-histogram, semi-supervised). Each is defined formally in the preliminaries (Section~\ref{sec:preliminaries}); their comparative analysis, which objectives help and when, is the subject of Section~\ref{sec:experiments}. Our reported model instantiates $\mathcal{L}_{\text{ssl}}$ with the label-histogram and multi-hop reachability objectives.
 
-\paragraph{Total objective.}
-The training loss is a weighted combination,
+\paragraph{Total objective.} The training loss is a weighted combination,
 \begin{equation}
     \label{eq:total}
     \mathcal{L}
@@ -121,19 +97,9 @@ The training loss is a weighted combination,
     + w_{\text{con}}\,\mathcal{L}_{\text{con}}
     + w_{\text{ssl}}\,\mathcal{L}_{\text{ssl}},
 \end{equation}
-with nonnegative weights $w_{\cdot}$. Setting $w_{\text{ssl}}=0$ recovers a strong
-self-supervision-free baseline used throughout our analysis.
+with nonnegative weights $w_{\cdot}$. Setting $w_{\text{ssl}}=0$ recovers a strong self-supervision-free baseline used throughout our analysis.
 
 \subsection{Training}
 \label{sec:method-training}
 
-For large graphs, we partition $G$ into clusters~[ClusterGCN] and train
-full-batch within each cluster; small graphs are trained full-batch directly.
-Self-supervised targets that depend on global structure (e.g.\ landmark distances,
-label histograms) are computed once on the full graph and indexed per cluster.
-Unless otherwise stated, we use an $L=3$ layer encoder of width $h=128$, dropout
-$0.3$, and loss weights $(w_{\text{cls}},w_{\text{edge}},w_{\text{con}},
-w_{\text{ssl}})$ selected in Section~\ref{sec:experiments}; the learning rate is
-set per dataset. Optimization uses Adam. The per-epoch cost is dominated by the
-encoder forward/backward pass, $O(|E|\,h + n\,h^2)$ per cluster, matching standard
-message-passing GNNs.
+For large graphs, we partition $G$ into clusters~[ClusterGCN] and train full-batch within each cluster; small graphs are trained full-batch directly. Self-supervised targets that depend on global structure (e.g.\ landmark distances, label histograms) are computed once on the full graph and indexed per cluster. Unless otherwise stated, we use an $L=3$ layer encoder of width $h=128$, dropout $0.3$, and loss weights $(w_{\text{cls}},w_{\text{edge}},w_{\text{con}},w_{\text{ssl}})$ selected in Section~\ref{sec:experiments}; the learning rate is set per dataset. Optimization uses Adam. The per-epoch cost is dominated by the encoder forward/backward pass, $O(|E|\,h + n\,h^2)$ per cluster, matching standard message-passing GNNs.

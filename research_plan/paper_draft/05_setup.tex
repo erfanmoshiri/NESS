@@ -1,7 +1,7 @@
 \section{Experimental Setup}
 \label{sec:setup}
 
-\paragraph{Datasets.} We evaluate on five node-classification benchmarks. Four are small citation and co-purchase graphs with sparse binary bag-of-words attributes---Cora, CiteSeer, Amazon-Computers (AMAC), and Amazon-Photo (AMAP)---and one is a large graph with dense, continuous features, ogbn-arxiv (169K nodes, 128-dimensional embeddings). Their statistics are summarized in Table~\ref{tab:datasets}. This spread lets us study behavior across both feature regimes (sparse binary vs.\ dense continuous) and scales.
+\paragraph{Datasets.} We evaluate on five node-classification benchmarks. Four are small citation and co-purchase graphs with sparse binary bag-of-words attributes: Cora, CiteSeer, Amazon-Computers (AMAC), and Amazon-Photo (AMAP). The fifth, ogbn-arxiv, is a large graph with dense, continuous features (169K nodes, 128-dimensional embeddings). Their statistics are summarized in Table~\ref{tab:datasets}. This spread lets us study behavior across both feature regimes (sparse binary vs.\ dense continuous) and scales.
 
 \paragraph{Missingness protocol.} We simulate attribute-missing conditions by selecting a fraction $\rho$ of nodes uniformly at random and removing their entire feature vector (zero-filled). The masked nodes are split evenly into validation and test sets; the remaining observable nodes form the training set. The classification loss is computed only on observable-node labels, so no label or feature information from the evaluated nodes leaks into training. We use $\rho=0.4$ for the main comparison and sweep $\rho \in \{0.2,0.4,0.6,0.8,0.9,0.95\}$ for the robustness analysis.
 
