@@ -1,0 +1,43 @@
+\section*{Appendix A. Formal Definitions of Evaluated Objectives}
+\label{app:objectives}
+
+This appendix gives the precise definition of each self-supervised objective evaluated in Section~\ref{sec:experiments}. All objectives operate on the encoder output $\mathbf{Z}$ (Section~\ref{sec:method-encoder}) and use only information that survives missingness, namely graph structure, observed neighbor features, or observed training labels. We write $\mathcal{N}_k(i)$ for the $k$-hop neighborhood of node $i$, $V_o$ for the observable set, and $h_{(\cdot)}$ for a lightweight per-objective prediction head applied to $\mathbf{Z}$. Unless noted, $k$ matches the value used in training.
+
+\paragraph{Feature-related objectives.} These predict per-node targets derived from observable neighbor features and are trained with a mean-squared error.
+The \emph{centroid} objective predicts the mean of a node's observable neighbors' features,
+\begin{equation}
+    \mathbf{t}^{\text{cen}}_i = \frac{1}{|\mathcal{N}_k(i)\cap V_o|}\!\!\sum_{j\in\mathcal{N}_k(i)\cap V_o}\!\!\mathbf{x}_j,
+    \qquad
+    \mathcal{L}_{\text{cen}} = \frac{1}{n}\sum_i \big\|h_{\text{cen}}(\mathbf{z}_i)-\mathbf{t}^{\text{cen}}_i\big\|_2^2 .
+\end{equation}
+The \emph{stats} objective is identical but predicts the per-dimension standard deviation of the same neighborhood, $\mathbf{t}^{\text{std}}_i = \mathrm{std}_{j\in\mathcal{N}_k(i)\cap V_o}\,\mathbf{x}_j$.
+The \emph{recon} objective is a masked-feature self-reconstruction: at each step half of the observable nodes are held out, their features zeroed, and their true features regressed from the re-encoded representations,
+\begin{equation}
+    \mathcal{L}_{\text{rec}} = \frac{1}{|H|}\sum_{i\in H}\big\|h_{\text{rec}}(\mathbf{z}_i)-\mathbf{x}_i\big\|_2^2 ,
+\end{equation}
+where $H\subset V_o$ is the freshly sampled held-out set.
+
+\paragraph{Structural objectives.} These predict topological targets computed purely from the graph and are defined even when no features are observed.
+The \emph{path} objective is a stochastic multi-hop link prediction. A fresh batch of random walks of length $\ell$ yields positive pairs $(s,e)$ with $e$ reachable within $\ell$ hops of $s$; negatives $(s,e^-)$ draw $e^-$ from the set of nodes at least $3$ hops from $s$. With a scoring head $h_{\text{path}}$ on the elementwise product of endpoints,
+\begin{equation}
+    \mathcal{L}_{\text{path}} = \tfrac{1}{2}\Big[
+        \mathrm{BCE}\big(h_{\text{path}}(\mathbf{z}_s\!\odot\!\mathbf{z}_e),\,1\big)
+        + \mathrm{BCE}\big(h_{\text{path}}(\mathbf{z}_s\!\odot\!\mathbf{z}_{e^-}),\,0\big)
+    \Big].
+\end{equation}
+The \emph{triplet} objective ranks distances in embedding space: for an anchor $a$, a near node $p$ (within $\ell$ hops) and a far node $q$ ($\geq 3$ hops), it enforces a margin,
+\begin{equation}
+    \mathcal{L}_{\text{tri}} = \big[\,\|\mathbf{z}_a-\mathbf{z}_p\|_2^2 - \|\mathbf{z}_a-\mathbf{z}_q\|_2^2 + 1\,\big]_+ .
+\end{equation}
+The \emph{anchor} objective regresses each node's normalized hop-distances to $K$ sampled landmark nodes, $\mathbf{d}_i\in[0,1]^K$, computed by multi-source breadth-first search; \emph{anchorcls} is its classification variant, predicting the discrete hop-distance bucket to each landmark with a cross-entropy loss.
+
+\paragraph{Label-related objective.} The \emph{hist} objective is semi-supervised. Its target is the class distribution of a node's observable $k$-hop neighbors, using only training labels,
+\begin{equation}
+    \mathbf{p}_i = \mathrm{normalize}\Big(\sum_{j\in\mathcal{N}_k(i)\cap V_o} w_{ij}\,\mathbf{e}_{y_j}\Big),
+\end{equation}
+where $\mathbf{e}_{y_j}$ is the one-hot label of neighbor $j$ and $w_{ij}$ a proximity weight. The prediction is trained with a KL divergence over observable nodes with at least one observable neighbor,
+\begin{equation}
+    \mathcal{L}_{\text{hist}} = \frac{1}{|V_o'|}\sum_{i\in V_o'} \mathrm{KL}\big(\mathbf{p}_i \,\|\, \mathrm{softmax}(h_{\text{hist}}(\mathbf{z}_i))\big).
+\end{equation}
+
+\paragraph{Contrastive objectives.} These do not predict a fixed target but encourage agreement between the two views $\mathbf{Z}^{(1)},\mathbf{Z}^{(2)}$ (Section~\ref{sec:method-encoder}). The default is the Barlow-Twins redundancy-reduction loss of Equation~\eqref{eq:con}. We additionally evaluate \emph{InfoNCE}, which maximizes agreement between the two views of the same node against other nodes in the batch, and \emph{prototype-InfoNCE}, which contrasts nodes against per-class prototypes formed from observable labels.

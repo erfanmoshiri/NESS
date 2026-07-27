@@ -1,74 +1,129 @@
-\section{Related Work}
-\label{sec:related}
+# Related Work — Parts 2 and 3
 
-Self-supervised learning (SSL) offers an appealing alternative to imputation for missing-attribute graphs. Rather than reconstructing absent inputs, it learns representations directly from the abundant unlabeled structure, and its quality is judged by downstream utility rather than by reconstruction fidelity. Our work sits squarely in this camp. We therefore review it in depth, separating two strands that are frequently conflated. The first comprises \emph{technique neighbors}, namely general graph SSL developed on fully observed graphs, from which we inherit our objective and view vocabulary. The second comprises \emph{problem neighbors}, namely SSL methods engineered specifically for attribute-missing graphs, against which we must differentiate most sharply.
+## 2. Graph Self-Supervised and Multi-View Learning
 
-\subsection{Contrastive and Multi-View Self-Supervision}
-\label{sec:related-contrastive}
+Self-supervised learning (SSL) is an appealing alternative to imputation on
+attribute-missing graphs. Instead of filling in absent inputs, an SSL method learns
+representations from the unlabeled structure and is judged by how well those
+representations support downstream tasks. Our work belongs to this line, so we review it in
+some detail. We keep apart two strands that are often merged. Technique neighbors are
+general graph SSL methods developed on fully observed graphs, and we borrow our objectives
+and views from them. Problem neighbors are SSL methods designed for attribute-missing
+graphs, and these are the ones we must separate ourselves from most carefully.
 
-The dominant paradigm learns node representations by maximizing agreement between different views of a graph, an objective commonly cast as maximizing a mutual-information lower bound. Existing methods differ chiefly in the granularity at which agreement is enforced and in how views are produced. Deep Graph Infomax~[DGI] learns node representations by maximizing the mutual information between patch-level representations and a high-level graph summary, without recourse to random-walk objectives, and applies to both transductive and inductive settings. GMI~[GMI] instead maximizes graphical mutual information between each node's hidden representation and its neighborhood, measured over both node features and topology, so that the signal is tied to local structure. MVGRL~[MVGRL] contrasts representations learned from two structural views, an adjacency view and a graph-diffusion view; notably, its authors report that increasing the number of views beyond two or contrasting multi-scale encodings does not help, and that the strongest results come from contrasting first-order neighbors against a diffusion view.
+### 2.1 Contrastive and multi-view self-supervision
 
-A large family instead manufactures views through stochastic input perturbations. GRACE~[GRACE] generates two views by corrupting structure and attributes and contrasts them at the node level, and its successor GCA~[GCA] makes these augmentations adaptive by perturbing unimportant edges and features more aggressively according to centrality and attribute-importance priors. GraphCL~[GraphCL] catalogs four families of graph augmentation and studies their combinations, and subsequent work automates the choice of augmentation because it otherwise has to be tuned per dataset. Because handcrafted augmentation can distort a graph's semantics, a parallel line reduces or removes it: AFGRL~[AFGRL] builds an alternative view without augmentation by discovering nodes that share local structure and global semantics with a target node, and MA-GCL~[MA-GCL] perturbs the view encoders' architectures (through asymmetric, random, and shuffling tricks) rather than the graph inputs. A further group forgoes negative pairs in favor of redundancy reduction, decorrelating embedding dimensions in the spirit of Barlow Twins~[BarlowTwins], whose graph counterpart is realized by DCLN~[DCLN].
+The dominant approach learns node representations by making different views of a graph
+agree, usually framed as maximizing a lower bound on their mutual information. Methods in
+this family differ in the granularity of the agreement and in how the views are produced.
+Deep Graph Infomax [16] maximizes the mutual information between patch-level node
+representations and a graph-level summary, avoids random-walk objectives, and works in both
+transductive and inductive settings. GMI [17] measures mutual information between a node's
+hidden representation and its neighborhood over both features and topology, which ties the
+signal to local structure. MVGRL [15] contrasts an adjacency view against a graph-diffusion
+view. Its authors report that adding more than two views or contrasting multi-scale
+encodings does not help, and that the strongest results come from contrasting first-order
+neighbors with the diffusion view.
 
-Collectively, these methods establish that the choice of objective and view is consequential, and that generic augmentations are a fragile design axis. Yet all are developed and validated on fully observed graphs, their views are drawn from augmentations that are not tuned to the absence of features, and none asks which objective remains informative once whole attribute vectors are missing---precisely the question we take up.
+A large group of methods build views by perturbing the input at random. GRACE [18] corrupts
+structure and attributes to form two views and contrasts them node by node. GCA [19] makes
+the corruption adaptive, perturbing less important edges and features more aggressively
+according to centrality and attribute-importance scores. GraphCL [21] catalogs four families
+of graph augmentation and studies how they combine, and later work automates the choice
+because it otherwise has to be retuned for each dataset. Handcrafted augmentation can change
+what a graph means, so a parallel line reduces or removes it. AFGRL [25] forms a second view
+without augmentation by finding nodes that share local structure and global semantics with
+the target. MA-GCL [20] perturbs the view encoders' architectures, through asymmetric,
+random, and shuffling tricks, rather than the graph itself. A final group drops negative
+pairs and decorrelates the embedding dimensions in the spirit of Barlow Twins [24], whose
+graph counterpart is DCLN [26].
 
-\subsection{Masked and Reconstruction-Based Self-Supervision}
-\label{sec:related-masked}
+Taken together, these methods show that the objective and the view both matter, and that
+generic augmentations are a brittle design axis. All of them, however, are built and tested
+on fully observed graphs. Their views come from augmentations that are not designed for
+absent features, and none of them asks which objective still carries information once whole
+attribute vectors are gone. That is the question we take up.
 
-A second pretext family corrupts part of the input and trains the model to restore it, an idea imported from masked modeling in language and vision. The variants differ in \emph{what} they mask. GraphMAE~[GraphMAE] focuses on feature reconstruction, masking node features and restoring them with a scaled cosine error together with a re-masking strategy, and reports that these choices let a simple autoencoder match or exceed contrastive baselines. MaskGAE~[MaskGAE] instead masks graph \emph{structure}, adopting masked edge modeling as its pretext task and reconstructing the removed edges from the visible ones, with theory relating this objective to contrastive learning. RARE~[RARE] adds robustness by masking and predicting in the latent space rather than the input space. These objectives are attractive because they avoid negative sampling and transfer a recipe that has proven powerful elsewhere.
+### 2.2 Masked and reconstruction-based self-supervision
 
-However, masking is a pretext imposed on otherwise complete data. When attributes are genuinely missing, the feature-reconstruction signal in particular overlaps heavily with what neighborhood aggregation already recovers, so the pretext adds little beyond what the encoder computes. Consistent with this observation, we find that a feature-reconstruction objective plateaus early and yields no downstream gain under missingness, indicating that faithful reconstruction and useful representation are not the same goal in this regime.
+A second family of pretext tasks corrupts part of the input and trains the model to restore
+it, an idea imported from masked modeling in language and vision. These methods differ in
+what they mask. GraphMAE [22] masks node features and reconstructs them with a scaled cosine
+error and a re-masking step, and shows that a plain autoencoder can then match or exceed
+contrastive baselines. MaskGAE [29] masks structure instead, treating masked edge prediction
+as the pretext and reconstructing the removed edges from the visible ones, with theory that
+links the objective to contrastive learning. RARE [30] masks and predicts in the latent
+space rather than the input space for added robustness. These objectives are attractive
+because they need no negative sampling and carry over a recipe that has worked well
+elsewhere.
 
-\subsection{Self-Supervision for Attribute-Missing Graphs}
-\label{sec:related-missing}
+Masking, though, is a pretext applied to data that is otherwise complete. When attributes are
+genuinely missing, the feature-reconstruction signal largely overlaps with what neighborhood
+aggregation already recovers, so it adds little to what the encoder computes on its own. Our
+experiments bear this out. A feature-reconstruction objective plateaus early and gives no
+downstream gain under missingness. Faithful reconstruction and a useful representation are
+not the same goal in this regime.
 
-Closest to our work are SSL and multi-view methods built specifically for attribute-missing graphs. AmGCL~[AmGCL] handles missing attributes in two stages: a Dirichlet-energy-minimization feature precoder encodes information into the missing entries, and a self-supervised graph augmentation contrastive module then learns representations by maximizing a lower bound on the mutual information of the latent representation, alongside a structure-attribute energy-based feature reconstruction. It nonetheless commits to a single contrastive design, offers no analysis of which objective or view is responsible for its gains, and is evaluated only at small scale. MATE~[MATE] pursues a multi-view route, constructing complementary views of the graph and enforcing agreement across them for attribute imputation. MOBA~[MOBA] follows the same multi-view philosophy but explicitly targets the weaknesses of such designs, adopting a collaborative learning strategy that reduces redundant information between views while maximizing their consistency; even so, its view design is fixed a priori and it provides no principled account of why a particular view or objective succeeds. AIAE~[AIAE] takes a reconstruction-centric, autoencoder-based route to attribute imputation and is framed around imputation quality rather than downstream performance under severe missingness. Beyond the homogeneous setting, HGCA~[HGCA] unifies attribute completion and representation learning for heterogeneous graphs through an unsupervised contrastive objective, using an augmented network to complete missing attributes at a fine granularity. Our own prior conference work~[NCSSL] introduced a neighborhood-centric self-supervised formulation for attribute imputation, which the present study substantially extends by shifting to downstream classification and by asking when such self-supervision helps.
+### 2.3 Self-supervision for attribute-missing graphs
 
-Across all of these, the pattern is the same: each method fixes a single objective and view and tunes it, and none systematically investigates which self-supervised objective and which view are helpful under missingness, or why. Their evaluation is also narrow. Results are reported almost exclusively on small benchmarks (Cora, CiteSeer, Amazon) with \textbf{sparse binary bag-of-words} attributes, at a single missing rate. Real-world node features are typically \textbf{dense and continuous} (embeddings, sensor readings, numeric profiles). The distinction is not cosmetic: neighborhood-centric supervision averages neighbor features, which is informative for continuous attributes but near-noise for binary indicators. Behavior on continuous features, across missing rates, and at scale is thus left unexamined.
+The methods closest to ours are SSL and multi-view models built for attribute-missing
+graphs. AmGCL [14] works in two stages. A Dirichlet-energy-minimization precoder writes
+information into the missing entries, and a self-supervised contrastive module then learns
+representations by maximizing a lower bound on the mutual information of the latent code,
+together with a structure-attribute energy-based reconstruction. AmGCL commits to a single
+contrastive design, does not analyze which objective or view produces its gains, and is
+evaluated only at small scale. MATE [7] takes a multi-view route, building complementary
+views of the graph and enforcing agreement across them for imputation. Because supervision
+never reaches its per-node augmented quantities directly, such designs are prone to
+memorization, and shallow encoders can be starved of signal when missingness is high. MOBA
+[8] shares the multi-view philosophy but sets out to fix these weaknesses, using a
+collaborative strategy that cuts redundant information between views while keeping them
+consistent. Its view design is still fixed in advance, it does not explain why a given view
+or objective works, and it is not demonstrated at large scale. AIAE [9] is autoencoder-based
+and reconstruction-centric, framed around imputation quality rather than downstream accuracy
+under severe missingness. Outside the homogeneous setting, HGCA [11] joins attribute
+completion and representation learning for heterogeneous graphs through an unsupervised
+contrastive objective, completing missing attributes at a fine granularity with an augmented
+network. Our own conference work [71] introduced a neighborhood-centric self-supervised
+formulation, which the present study extends.
 
-\subsection{Adjacent Communities}
-\label{sec:related-adjacent}
+The pattern across these methods is consistent. Each fixes one objective and one view and
+tunes it, and none investigates which self-supervised objective and which view help under
+missingness, or why. Their results are also confined to small graphs and usually a single
+missing rate, so behavior across the missingness range and at scale is left unexamined.
 
-Two neighboring literatures pair missingness with contrastive learning under a different task or connectivity model. Incomplete multi-view clustering shares our combination of absent information and contrastive objectives but targets clustering rather than node classification: COMPLETER~[COMPLETER] treats the views of an incomplete multi-view dataset with a contrastive-prediction objective, and MCGC~[MCGC] learns a consensus graph with a contrastive regularizer precisely because the observed graph may be noisy or incomplete. On the higher-order side, SGHFP~[SGHFP] propagates features over hypergraphs to cope with missing attributes. We note these connections but do not treat them as central, as they differ from our problem in task or in graph model.
+### 2.4 Adjacent communities
 
-\subsection{Positioning of Our Work}
-\label{sec:related-positioning}
+Two nearby literatures combine missingness with contrastive learning under a different task
+or connectivity model. Incomplete multi-view clustering pairs absent information with
+contrastive objectives but targets clustering rather than node classification. COMPLETER
+[28] handles the views of an incomplete multi-view dataset with a contrastive-prediction
+objective, and MCGC [52] learns a consensus graph with a contrastive regularizer because the
+observed graph may be noisy or incomplete. On the higher-order side, SGHFP [51] propagates
+features over hypergraphs to cope with missing attributes. We note these links but do not
+treat them as central, since they differ from our problem in task or in graph model.
 
-Viewed together, the prior art leaves a specific opening. Imputation methods, whether statistical propagation or learned generative models, optimize reconstruction rather than downstream utility, and their learned variants do not scale. Imputation-free architectural and per-node approaches either add no self-supervisory signal or memorize node-specific quantities that fail to generalize. General graph SSL is powerful yet untested as a tool for missing-feature learning, and its own literature shows that view construction is a fragile, largely handcrafted design axis. Finally, the SSL methods built for attribute-missing graphs each commit to a single objective and view, without asking which choices matter or why, and report results only on small, sparse binary bag-of-words benchmarks at a single missing rate.
+---
 
-Our work addresses this gap on three fronts. First, we evaluate representations by downstream node-classification accuracy under missingness, and do so in the regime that reflects real deployments: \textbf{large graphs with dense, continuous node features}, rather than the small binary bag-of-words benchmarks on which prior attribute-missing methods are validated, and across a range of missing rates. Second, we conduct a systematic study of \emph{when} self-supervision helps under missingness. Rather than a single objective winning uniformly, an auxiliary objective helps only when its target is hard, class-relevant, and \emph{not} already recovered by neighborhood aggregation: feature-reconstruction and low-variance neighborhood-statistic objectives are inert; a label-aware neighbor-histogram objective helps most consistently as a semi-supervised signal; and structural objectives become valuable primarily under severe missingness, where a propagation-based encoder alone is starved. Third, we show that the effective objective is not idiosyncratic to our encoder, since it transfers to other backbones, indicating that the principle, rather than a specific architecture, drives the gains.
+## 3. Positioning of Our Work
 
-\begin{table}[t]
-\centering
-\caption{Related-work references and what each cited source supports. Verify full-text items (MATE, MOBA, AIAE, RARE, DCLN, COMPLETER, SGHFP) before final submission; NCSSL requires a bibliography entry.}
-\label{tab:relwork-refs}
-\small
-\begin{tabular}{@{}p{2.1cm}p{10.4cm}@{}}
-\toprule
-\textbf{Method} & \textbf{What the source supports} \\
-\midrule
-DGI          & Patch-vs-summary mutual information; no random walks; transductive + inductive. \\
-GMI          & Graphical MI between node representation and neighborhood, over features + topology. \\
-MVGRL        & Adjacency + diffusion views; authors state $>2$ views / multi-scale does \emph{not} help. \\
-GRACE        & Two views by corruption; node-level contrast; structure + attribute corruption. \\
-GCA          & Adaptive augmentation via centrality (topology) and attribute-importance priors. \\
-GraphCL      & Four augmentation families + study of combinations. \\
-AFGRL        & Augmentation-free; alternative view from nodes sharing local structure + global semantics. \\
-MA-GCL       & Perturbs encoder architectures (asymmetric/random/shuffling), not inputs. \\
-Barlow Twins & Redundancy reduction via cross-correlation to identity; a vision method. \\
-DCLN         & Cited as the graph redundancy-reduction counterpart (verify from full text). \\
-GraphMAE     & \textbf{Feature} reconstruction: masking + scaled cosine error + re-mask. \\
-MaskGAE      & Masks \textbf{edges/structure}, not features. \\
-RARE         & Latent-space masked prediction (verify exact mechanism). \\
-AmGCL        & Dirichlet-energy precoder + contrastive module (MI lower bound) + energy-based feature recon. \\
-MATE         & Multi-view / attribute imputation (paywalled; verify per-node and shallow-encoder critiques). \\
-MOBA         & Multi-view collaborative learning: reduce redundancy + maximize consistency between two views. \\
-AIAE         & Autoencoder-based attribute imputation (verify imputation-quality framing). \\
-HGCA         & Heterogeneous; unifies attribute completion + representation learning via unsupervised contrastive. \\
-COMPLETER    & Incomplete multi-view clustering via contrastive prediction. \\
-MCGC         & Learns a consensus graph with a contrastive regularizer because the graph may be noisy/incomplete. \\
-SGHFP        & Feature propagation over hypergraphs for missing attributes (verify). \\
-NCSSL        & Our prior work: neighborhood-centric SSL for attribute imputation (needs a bib entry). \\
-\bottomrule
-\end{tabular}
-\end{table}
+Seen together, the prior work leaves a clear opening. Imputation methods, whether statistical
+propagation or learned generative models, optimize reconstruction instead of downstream
+utility, and the learned variants do not scale. Imputation-free architectural methods and
+per-node methods either add no self-supervisory signal or memorize node-specific quantities
+that do not generalize. Structure-leaning methods exploit topology effectively but are built
+for a broader joint-deficiency problem. General graph SSL is powerful but untested as a tool
+for missing-feature learning, and its own literature shows that view construction is a
+brittle, largely handcrafted axis. The SSL methods built for attribute-missing graphs each
+settle on one objective and one view without asking which choices matter or why, and report
+results only at small scale and a single missing rate.
+
+Our work responds to this gap directly. We evaluate representations by downstream
+node-classification accuracy under missingness, at a substantially larger scale than prior
+attribute-missing studies and across a range of missing rates. The core of the paper is then
+a systematic study of which self-supervised objectives and which views help under
+missingness. The pattern we find has a clear explanation: stochastic, structure-based
+objectives whose signal is not redundant with neighborhood aggregation are the effective
+ones, while feature-reconstruction objectives are not. This effect is not specific to our
+encoder. The objective transfers to other backbones, which indicates that the principle,
+rather than any particular architecture, drives the gains.
