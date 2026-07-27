@@ -164,26 +164,36 @@ treat them as central, since they differ from our problem in task or in graph mo
 \subsection{Positioning of Our Work}
 \label{sec:related-positioning}
 
-Seen together, the prior work leaves a clear opening. Imputation methods, whether statistical
-propagation or learned generative models, optimize reconstruction instead of downstream
-utility, and the learned variants do not scale. Imputation-free architectural methods and
-per-node methods either add no self-supervisory signal or memorize node-specific quantities
-that do not generalize. Structure-leaning methods exploit topology effectively but are built
-for a broader joint-deficiency problem. General graph SSL is powerful but untested as a tool
-for missing-feature learning, and its own literature shows that view construction is a
-brittle, largely handcrafted axis. The SSL methods built for attribute-missing graphs each
-settle on one objective and one view without asking which choices matter or why, and report
-results only at small scale and a single missing rate.
+% Seen together, the prior work leaves a clear opening. Imputation methods, whether statistical
+% propagation or learned generative models, optimize reconstruction instead of downstream
+% utility, and the learned variants do not scale. Imputation-free architectural methods and
+% per-node methods either add no self-supervisory signal or memorize node-specific quantities
+% that do not generalize. Structure-leaning methods exploit topology effectively but are built
+% for a broader joint-deficiency problem. General graph SSL is powerful but untested as a tool
+% for missing-feature learning, and its own literature shows that view construction is a
+% brittle, largely handcrafted axis. The SSL methods built for attribute-missing graphs each
+% settle on one objective and one view without asking which choices matter or why, and report
+% results only at small scale and a single missing rate.
 
-Our work responds to this gap directly. We evaluate representations by downstream
-node-classification accuracy under missingness, at a substantially larger scale than prior
-attribute-missing studies and across a range of missing rates. The core of the paper is then
-a systematic study of which self-supervised objectives and which views help under
-missingness. The pattern we find has a clear explanation: stochastic, structure-based
-objectives whose signal is not redundant with neighborhood aggregation are the effective
-ones, while feature-reconstruction objectives are not. This effect is not specific to our
-encoder. The objective transfers to other backbones, which indicates that the principle,
-rather than any particular architecture, drives the gains.
+% Our work responds to this gap directly. We evaluate representations by downstream
+% node-classification accuracy under missingness, at a substantially larger scale than prior
+% attribute-missing studies and across a range of missing rates. The core of the paper is then
+% a systematic study of which self-supervised objectives and which views help under
+% missingness. The pattern we find has a clear explanation: stochastic, structure-based
+% objectives whose signal is not redundant with neighborhood aggregation are the effective
+% ones, while feature-reconstruction objectives are not. This effect is not specific to our
+% encoder. The objective transfers to other backbones, which indicates that the principle,
+% rather than any particular architecture, drives the gains.
+
+  Seen together, the prior work leaves a clear opening. Imputation methods optimize reconstruction rather than downstream utility, and the learned variants do not scale; imputation-free and
+  per-node methods add no self-supervisory signal or memorize node-specific quantities. General graph SSL is powerful but untested for missing features, and its own literature shows view
+  construction to be a brittle, handcrafted axis. The SSL methods built for attribute-missing graphs each fix one objective and one view without asking which choices matter, and report results
+  only at small scale and a single missing rate.
+
+  Our work responds to this gap. We evaluate representations by downstream node-classification accuracy under missingness, at substantially larger scale and across a range of missing rates,
+  and conduct a systematic study of which self-supervised objectives and views help. We find that self-supervision generally helps, but its benefit is governed by the severity of missingness
+  and by how class-relevant and non-trivial the objective's target is. The effect is not specific to our encoder: the objective transfers to other backbones, indicating that the principle, not
+  the architecture, drives the gains.
 
 
 
