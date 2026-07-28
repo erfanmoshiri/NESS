@@ -6,8 +6,8 @@ Some studies consider several forms of incomplete information together. D²PT ad
 T2-GNN also considers incomplete feature entries and incomplete graph structure, using separate feature and structure teachers to reduce interference between the two sources of information \cite{huo2023t2}. 
 Other studies focus mainly on label scarcity, where only a small number of node labels are available. 
 Graph Structure Learning methods, such as IDGL and Pro-GNN, learn or correct graph topology while assuming that node features are observed \cite{chen2020iterative,jin2020graph}. 
-In this work, we focus on node classification when the entire feature vectors of some nodes are missing, while graph structure is fully observed and labels are available for the downstream task.
-In first section, we discuss graph learning using Self-supervised methods. Then we discuss Handling missing information in graphs using imputation and learnign under missingness.
+In this work, we focus on node classification when the entire feature vectors of some nodes are missing, while the graph structure is fully observed and labels are available for the downstream task.
+In the first part, we discuss graph learning with self-supervised methods. We then discuss handling missing information in graphs through imputation and learning under missingness.
 
 %%%%%%%%%%%%%%%%%% First PART %%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -15,13 +15,13 @@ In first section, we discuss graph learning using Self-supervised methods. Then 
 \subsection{Self-Supervised and Multi-View Graph Learning}
 
 
-Self-supervised learning (SSL) methods can help the model learn auxilary signals that eventually helps with the embedding quality.
+Self-supervised learning (SSL) methods help the model learn auxiliary signals that improve embedding quality.
 SSL is also an appealing alternative to imputation on
 attribute-missing graphs. Instead of filling in absent inputs, an SSL method learns
 representations from the unlabeled structure and is judged by how well those
-representations support downstream tasks. Our work belongs to this line, so we review it in
+representations support downstream tasks. Our work belongs to this line, so we review it in detail.
 
-In this part, next two sections discuss general SSL graph learning methods that work on full graphs. Then we discuss methods that adopt SSL to learning under missing information.
+The next two subsections discuss general SSL graph-learning methods that operate on fully observed graphs. We then discuss methods that adapt SSL to learning under missing information.
 
 
 \subsubsection{Contrastive and multi-view self-supervision}
@@ -81,8 +81,8 @@ not the same goal in this regime.
 
 
 \subsection{Graph Learning Under Missing Information}
-Graphs that contain missing information can be handled in different ways: Imputation-based methods first estimate missing feature values and then use the completed feature matrix for a downstream graph learning task. 
-Learning under missingess or Imputation-free methods tend to directly learn reliable representations from missing graphs that can be used for downstream tasks.
+Graphs that contain missing information can be handled in different ways. Imputation-based methods first estimate the missing feature values and then use the completed feature matrix for a downstream graph-learning task.
+Learning-under-missingness, or imputation-free, methods instead learn reliable representations directly from the incomplete graph for use in downstream tasks.
 
 \subsubsection{Statistical and Propagation-Based Imputation}
 Statistical and propagation-based imputation methods first estimate missing node features and then apply a standard GNN to the completed feature matrix. Simple methods such as K-nearest neighbour (KNN) imputation and neighbour aggregation estimate missing features using similar nodes or directly connected neighbours \cite{you2020handling}. These methods are computationally efficient and scalable, but they use fixed local rules and do not learn how features should be imputed \cite{yoo2022accurate}. Feature Propagation (FP) extends neighbour-based aggregation through a parameter-free diffusion process \cite{rossi2022unreasonable}. It repeatedly propagates features through the normalized graph adjacency while resetting observed entries to their original values, allowing information to travel across multiple hops. The reconstruction stage is label-free, while the completed features are later used by a supervised node classifier. FP aims to recover low-frequency feature information that supports downstream classification rather than faithfully reconstructing the original features. It scales to large graphs and performs well under high entry-wise missing rates, although its effectiveness depends on graph homophily and decreases when connected nodes are dissimilar. Overall, these methods provide simple and scalable imputations, but their fixed propagation rules cannot learn task-specific feature reconstruction.
@@ -90,7 +90,7 @@ Statistical and propagation-based imputation methods first estimate missing node
 \subsubsection{Learned and Generative Imputation}
 Learned imputation methods use trainable models to estimate missing features from observed attributes, graph structure, or both. SAT addresses attribute-missing graphs by mapping structural and attribute information into a shared latent space \cite{chen2020learning}. It uses the structural representation of a node to generate its missing feature vector and is trained through reconstruction and adversarial distribution-matching objectives. SVGA also considers the attribute-missing setting but introduces a structured variational model with a graph-based Gaussian Markov Random Field prior \cite{yoo2022accurate}. It uses graph regularization to model dependencies between nodes and can optionally use observed labels as an additional training signal. Both methods directly optimize feature reconstruction and then evaluate whether the estimated features support downstream node classification. SAT was evaluated on graphs with up to approximately 20,000 nodes, while SVGA extended the evaluation to OGBN-Arxiv with approximately 169,000 nodes. However, both methods assume undirected homogeneous graphs and do not address entry-wise attribute-incomplete settings.
 
-Several related methods provide the broader background for learned imputation. GAIN uses a generator, a discriminator, and a missingness mask to impute entry-wise missing values in tabular data \cite{yoon2018gain}. GINN extends tabular imputation by constructing a similarity graph between samples and applying a graph convolutional denoising autoencoder \cite{spinelli2020missing}. However, these methods do not operate on naturally observed graphs with fully missing node feature vectors.GC-MC applies a graph autoencoder to matrix completion in recommender systems, where the goal is to predict missing user--item ratings \cite{berg2017graph}. IGMC extends this line by learning from local subgraphs without using global node identities, which supports inductive prediction for unseen users and items \cite{zhang2019inductive}. However, both methods complete missing edges or edge labels rather than missing node features. They therefore provide methodological background for graph-based completion but are not direct solutions to attribute-missing graph learning.
+Several related methods provide the broader background for learned imputation. GAIN uses a generator, a discriminator, and a missingness mask to impute entry-wise missing values in tabular data \cite{yoon2018gain}. GINN extends tabular imputation by constructing a similarity graph between samples and applying a graph convolutional denoising autoencoder \cite{spinelli2020missing}. However, these methods do not operate on naturally observed graphs with fully missing node feature vectors. GC-MC applies a graph autoencoder to matrix completion in recommender systems, where the goal is to predict missing user--item ratings \cite{berg2017graph}. IGMC extends this line by learning from local subgraphs without using global node identities, which supports inductive prediction for unseen users and items \cite{zhang2019inductive}. However, both methods complete missing edges or edge labels rather than missing node features. They therefore provide methodological background for graph-based completion but are not direct solutions to attribute-missing graph learning.
 
 Overall, learned imputation methods can model more complex relationships than fixed propagation rules, but their reported scalability is generally lower than that of parameter-free propagation methods. Their experiments also show that improved feature reconstruction does not always produce a similar improvement in downstream prediction. We therefore evaluate missing-feature methods through downstream node classification and examine their performance on larger graphs.
 
@@ -118,7 +118,7 @@ Overall, GCNMF and PaGCN handle missingness within the GNN forward pass and are 
 
 
 
-\subsection{Self-Supervision for For Learning Under Missingness}
+\subsection{Self-Supervision for Learning Under Missingness}
 \label{sec:related-missing}
 
 The methods closest to ours are SSL and multi-view models built for attribute-missing
@@ -131,7 +131,7 @@ evaluated only at small scale. MATE~\cite{peng2023mate} takes a multi-view route
 views of the graph and enforcing agreement across them for imputation. Because supervision
 never reaches its per-node augmented quantities directly, such designs are prone to
 memorization, and shallow encoders can be starved of signal when missingness is high. 
-MATE also learn node-specific values or representations within a fixed graph and does not generalize to unseen attribute-missing nodes.
+MATE also learns node-specific values or representations within a fixed graph and does not generalize to unseen attribute-missing nodes.
 MOBA~\cite{yu2024moba}
 shares the multi-view philosophy but sets out to fix these weaknesses, using a
 collaborative strategy that cuts redundant information between views while keeping them
