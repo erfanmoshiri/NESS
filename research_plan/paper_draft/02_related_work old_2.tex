@@ -1,0 +1,238 @@
+\section{Related Work}
+Graph learning problems can be distinguished by what information is unavailable and by the extent of the missing information. For node features, attribute-incomplete graphs contain missing feature entries, while attribute-missing graphs contain nodes whose entire feature vectors are unavailable. Some studies consider several forms of incomplete information together. D²PT addresses weak-information learning with incomplete feature entries, incomplete graph structure, and limited labels \cite{liu2023learning}. T2-GNN also considers incomplete feature entries and incomplete graph structure, using separate feature and structure teachers to reduce interference between the two sources of information \cite{huo2023t2}. Other studies focus mainly on label scarcity, where only a small number of node labels are available. Graph Structure Learning methods, such as IDGL and Pro-GNN, learn or correct graph topology while assuming that node features are observed \cite{chen2020iterative,jin2020graph}. In this work, we focus on node classification when the entire feature vectors of some nodes are missing, while graph structure is fully observed and labels are available for the downstream task.
+\label{sec:related}
+
+\subsection{Imputation-based Methods}
+Imputation-based methods first estimate missing feature values and then use the completed feature matrix for a downstream graph learning task. These methods can be divided into statistical and propagation-based approaches, which use fixed rules to recover missing values, and learned approaches, which train a model to estimate them \cite{rossi2022unreasonable,yoo2022accurate}.
+
+\subsubsection{Statistical and Propagation-Based Imputation}
+Statistical and propagation-based imputation methods first estimate missing node features and then apply a standard GNN to the completed feature matrix. Simple methods such as K-nearest neighbour (KNN) imputation and neighbour aggregation estimate missing features using similar nodes or directly connected neighbours \cite{you2020handling}. These methods are computationally efficient and scalable, but they use fixed local rules and do not learn how features should be imputed \cite{yoo2022accurate}. Feature Propagation (FP) extends neighbour-based aggregation through a parameter-free diffusion process \cite{rossi2022unreasonable}. It repeatedly propagates features through the normalized graph adjacency while resetting observed entries to their original values, allowing information to travel across multiple hops. The reconstruction stage is label-free, while the completed features are later used by a supervised node classifier. FP aims to recover low-frequency feature information that supports downstream classification rather than faithfully reconstructing the original features. It scales to large graphs and performs well under high entry-wise missing rates, although its effectiveness depends on graph homophily and decreases when connected nodes are dissimilar. Overall, these methods provide simple and scalable imputations, but their fixed propagation rules cannot learn task-specific feature reconstruction.
+
+\subsubsection{Learned and Generative Imputation}
+Learned imputation methods use trainable models to estimate missing features from observed attributes, graph structure, or both. SAT addresses attribute-missing graphs by mapping structural and attribute information into a shared latent space \cite{chen2020learning}. It uses the structural representation of a node to generate its missing feature vector and is trained through reconstruction and adversarial distribution-matching objectives. SVGA also considers the attribute-missing setting but introduces a structured variational model with a graph-based Gaussian Markov Random Field prior \cite{yoo2022accurate}. It uses graph regularization to model dependencies between nodes and can optionally use observed labels as an additional training signal. Both methods directly optimize feature reconstruction and then evaluate whether the estimated features support downstream node classification. SAT was evaluated on graphs with up to approximately 20,000 nodes, while SVGA extended the evaluation to OGBN-Arxiv with approximately 169,000 nodes. However, both methods assume undirected homogeneous graphs and do not address entry-wise attribute-incomplete settings.
+
+Several related methods provide the broader background for learned imputation. GAIN uses a generator, a discriminator, and a missingness mask to impute entry-wise missing values in tabular data \cite{yoon2018gain}. GINN extends tabular imputation by constructing a similarity graph between samples and applying a graph convolutional denoising autoencoder \cite{spinelli2020missing}. However, these methods do not operate on naturally observed graphs with fully missing node feature vectors.GC-MC applies a graph autoencoder to matrix completion in recommender systems, where the goal is to predict missing user--item ratings \cite{berg2017graph}. IGMC extends this line by learning from local subgraphs without using global node identities, which supports inductive prediction for unseen users and items \cite{zhang2019inductive}. However, both methods complete missing edges or edge labels rather than missing node features. They therefore provide methodological background for graph-based completion but are not direct solutions to attribute-missing graph learning.
+
+Overall, learned imputation methods can model more complex relationships than fixed propagation rules, but their reported scalability is generally lower than that of parameter-free propagation methods. Their experiments also show that improved feature reconstruction does not always produce a similar improvement in downstream prediction. We therefore evaluate missing-feature methods through downstream node classification and examine their performance on larger graphs.
+
+\subsection{Imputation-Free and Architectural Methods}
+
+Imputation-free methods modify the GNN architecture to process missing features directly, without first producing a completed feature matrix. GCNMF models missing feature values using a Gaussian mixture model and computes the expected activation of the first GCN layer under this distribution \cite{taguchi2021graph}. The remaining layers follow the standard GCN architecture, and the feature model and GCN parameters are trained jointly using the downstream task loss. This design allows missing-feature handling to be guided directly by node classification or link prediction rather than by a separate reconstruction objective. However, GCNMF was evaluated only on small- and medium-sized graphs, with the largest reported dataset containing approximately 13,700 nodes.
+
+PaGCN follows a deterministic architectural approach based on partial aggregation \cite{zhang2024incomplete}. Its aggregation operator uses a feature mask so that only observed entries from neighbouring nodes contribute to each feature channel. The operator also adjusts the normalization according to the number of available contributors and reduces to standard graph convolution when all features are observed. PaGCN introduces no additional learnable parameters beyond the GNN and is trained end-to-end using the node classification loss. It supports both entry-wise and whole-vector missingness and was evaluated on graphs with up to approximately 169,000 nodes. However, its experiments are limited to node classification, and some computationally heavier baselines were not evaluated on the largest datasets.
+
+PCFI is closely related to these methods but follows an impute-first design rather than an imputation-free architecture \cite{um2023confidence}. It estimates missing features through confidence-weighted diffusion and inter-channel propagation before applying a downstream GNN. The imputation stage is parameter-free and does not use labels, while the downstream model is trained on the target task. PCFI performs well under high missing rates, but it relies on feature homophily and requires two hyperparameters to be selected for each setting. Its results also show that improved downstream accuracy does not necessarily correspond to more accurate feature recovery.
+
+Overall, GCNMF and PaGCN handle missingness within the GNN forward pass and are optimized through supervised downstream objectives, without adding a self-supervised auxiliary signal. PaGCN provides the broader large-graph evaluation among these architecture-integrated methods. PCFI offers an efficient propagation-based alternative, but it belongs more directly to the imputation-based family.
+
+\subsection{Per-Node Parameterization and Learned Per-Node Fill}
+
+Per-node methods assign learnable values or latent representations to nodes with missing attributes and refine them during training. MATE introduces a learnable input-space parameter matrix for attribute-missing nodes and combines it with observed attributes to construct an attribute-based view \cite{peng2024multi}. It also constructs a structure-based view using graph diffusion. The two views are trained through contrastive, structural reconstruction, and attribute reconstruction losses, which update the initial parameters of the missing nodes. However, MATE is transductive, and its learnable matrix grows with the number of missing nodes and the feature dimension. Its reported experiments are also limited to small and medium-sized graphs.
+
+ITR initializes each attribute-missing node using its structure-based representation and then refines the initialized representations through an affinity matrix \cite{tu2022initializing}. The affinity matrix combines the observed graph structure with similarities calculated from the updated node representations. Reliable representations of attribute-observed nodes are restored during each refinement step to reduce the spread of imputation errors. RITR extends this approach to graphs that contain both partially missing feature entries and fully missing node feature vectors \cite{tu2024revisiting}. For the pure attribute-missing setting, its refinement process follows the original ITR design. Both methods are transductive and rely on graph-wide affinity operations, while RITR reports quadratic complexity and requires subgraph sampling on large datasets.
+
+Amer also learns missing attributes jointly with graph representations, but it does not assign an independent parameter vector to each missing node \cite{jin2022amer}. Instead, a shared generator produces missing attributes from random noise, and structural reconstruction, mutual-information, and adversarial objectives guide the generated values. Amer is therefore more accurately treated as a generative and structure-guided method than as a per-node parameterization method.
+
+GraphRNA and ARWMF are commonly included as baselines in attribute-missing studies, but neither method directly imputes missing node features \cite{huang2019graph,chen2019attributed}. GraphRNA learns representations from attributed random walks, while ARWMF expresses a related attributed-walk process through matrix factorization. When node attributes are unavailable, these methods mainly rely on graph structure rather than estimating the missing feature vectors. They therefore provide random-walk and representation-learning baselines rather than direct per-node imputation methods.
+
+Overall, MATE and ITR-based methods learn node-specific values or representations within a fixed graph. Their transductive design does not demonstrate generalization to unseen attribute-missing nodes, which motivates methods that learn from shared structural patterns rather than relying on node-specific quantities.
+
+
+\subsection{Structure-Leaning and Weak-Information Methods}
+
+Structure-leaning methods rely on graph topology when node features provide limited information. D²PT considers graph learning with incomplete features, incomplete structure, and limited labels at the same time~\cite{liu2023learning}. It first applies long-range PageRank-based propagation to spread the available feature information across the graph. It then constructs a global k-nearest-neighbour graph from the propagated features and aligns the representations learned from the original and global graph channels. The model is trained using classification losses and a prototype-alignment objective. D²PT does not explicitly reconstruct missing features, and its experiments consider entry-wise feature missingness together with missing edges and limited labels. It therefore addresses a broader weak-information setting rather than features-only attribute-missing learning.
+
+Graph Structure Learning methods address a different form of incomplete information by learning or correcting graph topology while assuming that node features are observed. IDGL iteratively updates the graph based on similarities between node representations and updates the representations using the learned graph \cite{chen2020iterative}. Pro-GNN instead learns a graph that remains close to the observed adjacency while encouraging sparsity, low rank, and feature smoothness \cite{jin2020graph}. These methods show that graph structure can be learned when the original topology is missing, noisy, or corrupted. However, they rely on complete node features and do not estimate missing feature vectors.
+
+Other methods study how topology and attributes should be combined when both are fully observed. AM-GCN uses separate topology-based, feature-based, and shared representation channels and combines them through attention \cite{wang2020gcn}. GNN-BC also maintains separate attribute and topology representations and limits redundancy between them before combining their outputs \cite{yang2022graph}. These methods do not address missing data, but they show that attribute and topology information may contribute differently to graph learning and should not always be merged through a single representation.
+
+Overall, this line of work shows that graph structure can provide useful information when features are limited. However, these methods focus on joint weak information, graph structure learning, or the fusion of complete attributes and topology rather than on attribute-missing feature learning. We use the same general principle through a structure-based self-supervised objective, without redesigning the full GNN architecture.
+
+
+%%%%%%%%%%%%%%%%%% SECOND PART %%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Graph Self-Supervised and Multi-View Learning}
+
+Self-supervised learning (SSL) is an appealing alternative to imputation on
+attribute-missing graphs. Instead of filling in absent inputs, an SSL method learns
+representations from the unlabeled structure and is judged by how well those
+representations support downstream tasks. Our work belongs to this line, so we review it in
+some detail. We keep apart two strands that are often merged. Technique neighbors are
+general graph SSL methods developed on fully observed graphs, and we borrow our objectives
+and views from them. Problem neighbors are SSL methods designed for attribute-missing
+graphs, and these are the ones we must separate ourselves from most carefully.
+
+
+\subsubsection{Contrastive and multi-view self-supervision}
+\label{sec:related-contrastive}
+
+The dominant approach learns node representations by making different views of a graph
+agree, usually framed as maximizing a lower bound on their mutual information. Methods in
+this family differ in the granularity of the agreement and in how the views are produced.
+Deep Graph Infomax~\cite{velickovic2019dgi} maximizes the mutual information between patch-level node
+representations and a graph-level summary, avoids random-walk objectives, and works in both
+transductive and inductive settings. GMI~\cite{peng2020gmi} measures mutual information between a node's
+hidden representation and its neighborhood over both features and topology, which ties the
+signal to local structure. MVGRL~\cite{hassani2020mvgrl} contrasts an adjacency view against a graph-diffusion
+view. Its authors report that adding more than two views or contrasting multi-scale
+encodings does not help, and that the strongest results come from contrasting first-order
+neighbors with the diffusion view.
+
+A large group of methods build views by perturbing the input at random. GRACE~\cite{zhu2020grace} corrupts
+structure and attributes to form two views and contrasts them node by node. GCA~\cite{zhu2021gca} makes
+the corruption adaptive, perturbing less important edges and features more aggressively
+according to centrality and attribute-importance scores. GraphCL~\cite{you2020graphcl} catalogs four families
+of graph augmentation and studies how they combine, and later work automates the choice
+because it otherwise has to be retuned for each dataset. Handcrafted augmentation can change
+what a graph means, so a parallel line reduces or removes it. AFGRL~\cite{lee2022afgrl} forms a second view
+without augmentation by finding nodes that share local structure and global semantics with
+the target. MA-GCL~\cite{gong2023magcl} perturbs the view encoders' architectures, through asymmetric,
+random, and shuffling tricks, rather than the graph itself. A final group drops negative
+pairs and decorrelates the embedding dimensions in the spirit of Barlow Twins~\cite{zbontar2021barlow}, whose
+graph counterpart is DCLN~\cite{peng2023dcln}.
+
+Taken together, these methods show that the objective and the view both matter, and that
+generic augmentations are a brittle design axis. All of them, however, are built and tested
+on fully observed graphs. Their views come from augmentations that are not designed for
+absent features, and none of them asks which objective still carries information once whole
+attribute vectors are gone. That is the question we take up.
+
+\subsubsection{Masked and Reconstruction-Based Self-Supervision}
+\label{sec:related-masked}
+
+A second family of pretext tasks corrupts part of the input and trains the model to restore
+it, an idea imported from masked modeling in language and vision. These methods differ in
+what they mask. GraphMAE~\cite{hou2022graphmae} masks node features and reconstructs them with a scaled cosine
+error and a re-masking step, and shows that a plain autoencoder can then match or exceed
+contrastive baselines. MaskGAE~\cite{li2023maskgae} masks structure instead, treating masked edge prediction
+as the pretext and reconstructing the removed edges from the visible ones, with theory that
+links the objective to contrastive learning. RARE~\cite{tu2023rare} masks and predicts in the latent
+space rather than the input space for added robustness. These objectives are attractive
+because they need no negative sampling and carry over a recipe that has worked well
+elsewhere.
+
+Masking, though, is a pretext applied to data that is otherwise complete. When attributes are
+genuinely missing, the feature-reconstruction signal largely overlaps with what neighborhood
+aggregation already recovers, so it adds little to what the encoder computes on its own. Our
+experiments bear this out. A feature-reconstruction objective plateaus early and gives no
+downstream gain under missingness. Faithful reconstruction and a useful representation are
+not the same goal in this regime.
+
+\subsection{Self-Supervision for Attribute-Missing Graphs}
+\label{sec:related-missing}
+
+The methods closest to ours are SSL and multi-view models built for attribute-missing
+graphs. AmGCL~\cite{zhang2023amgcl} works in two stages. A Dirichlet-energy-minimization precoder writes
+information into the missing entries, and a self-supervised contrastive module then learns
+representations by maximizing a lower bound on the mutual information of the latent code,
+together with a structure-attribute energy-based reconstruction. AmGCL commits to a single
+contrastive design, does not analyze which objective or view produces its gains, and is
+evaluated only at small scale. MATE~\cite{peng2023mate} takes a multi-view route, building complementary
+views of the graph and enforcing agreement across them for imputation. Because supervision
+never reaches its per-node augmented quantities directly, such designs are prone to
+memorization, and shallow encoders can be starved of signal when missingness is high. MOBA~\cite{yu2024moba}
+shares the multi-view philosophy but sets out to fix these weaknesses, using a
+collaborative strategy that cuts redundant information between views while keeping them
+consistent. Its view design is still fixed in advance, it does not explain why a given view
+or objective works, and it is not demonstrated at large scale. AIAE~\cite{xia2024aiae} is autoencoder-based
+and reconstruction-centric, framed around imputation quality rather than downstream accuracy
+under severe missingness. Outside the homogeneous setting, HGCA~\cite{he2022hgca} joins attribute
+completion and representation learning for heterogeneous graphs through an unsupervised
+contrastive objective, completing missing attributes at a fine granularity with an augmented
+network. Our own conference work~\cite{ncssl} introduced a neighborhood-centric self-supervised
+formulation, which the present study extends.
+
+The pattern across these methods is consistent. Each fixes one objective and one view and
+tunes it, and none investigates which self-supervised objective and which view help under
+missingness, or why. Their results are also confined to small graphs and usually a single
+missing rate, so behavior across the missingness range and at scale is left unexamined.
+
+\subsection{Adjacent Communities}
+\label{sec:related-adjacent}
+
+Two nearby literatures combine missingness with contrastive learning under a different task
+or connectivity model. Incomplete multi-view clustering pairs absent information with
+contrastive objectives but targets clustering rather than node classification. COMPLETER~\cite{lin2021completer}
+handles the views of an incomplete multi-view dataset with a contrastive-prediction
+objective, and MCGC~\cite{pan2021mcgc} learns a consensus graph with a contrastive regularizer because the
+observed graph may be noisy or incomplete. On the higher-order side, SGHFP~\cite{sghfp2023} propagates
+features over hypergraphs to cope with missing attributes. We note these links but do not
+treat them as central, since they differ from our problem in task or in graph model.
+
+
+\subsection{Positioning of Our Work}
+\label{sec:related-positioning}
+
+% Seen together, the prior work leaves a clear opening. Imputation methods, whether statistical
+% propagation or learned generative models, optimize reconstruction instead of downstream
+% utility, and the learned variants do not scale. Imputation-free architectural methods and
+% per-node methods either add no self-supervisory signal or memorize node-specific quantities
+% that do not generalize. Structure-leaning methods exploit topology effectively but are built
+% for a broader joint-deficiency problem. General graph SSL is powerful but untested as a tool
+% for missing-feature learning, and its own literature shows that view construction is a
+% brittle, largely handcrafted axis. The SSL methods built for attribute-missing graphs each
+% settle on one objective and one view without asking which choices matter or why, and report
+% results only at small scale and a single missing rate.
+
+% Our work responds to this gap directly. We evaluate representations by downstream
+% node-classification accuracy under missingness, at a substantially larger scale than prior
+% attribute-missing studies and across a range of missing rates. The core of the paper is then
+% a systematic study of which self-supervised objectives and which views help under
+% missingness. The pattern we find has a clear explanation: stochastic, structure-based
+% objectives whose signal is not redundant with neighborhood aggregation are the effective
+% ones, while feature-reconstruction objectives are not. This effect is not specific to our
+% encoder. The objective transfers to other backbones, which indicates that the principle,
+% rather than any particular architecture, drives the gains.
+
+  Seen together, the prior work leaves a clear opening. Imputation methods optimize reconstruction rather than downstream utility, and the learned variants do not scale; imputation-free and
+  per-node methods add no self-supervisory signal or memorize node-specific quantities. General graph SSL is powerful but untested for missing features, and its own literature shows view
+  construction to be a brittle, handcrafted axis. The SSL methods built for attribute-missing graphs each fix one objective and one view without asking which choices matter, and report results
+  only at small scale and a single missing rate.
+
+  Our work responds to this gap. We evaluate representations by downstream node-classification accuracy under missingness, at substantially larger scale and across a range of missing rates,
+  and conduct a systematic study of which self-supervised objectives and views help. We find that self-supervision generally helps, but its benefit is governed by the severity of missingness
+  and by how class-relevant and non-trivial the objective's target is. The effect is not specific to our encoder: the objective transfers to other backbones, indicating that the principle, not
+  the architecture, drives the gains.
+
+
+
+% TABLE NEEDS TO BE UPDATED
+
+% \begin{table}[t]
+% \centering
+% \caption{Related-work references and what each cited source supports. Verify full-text items (MATE, MOBA, AIAE, RARE, DCLN, COMPLETER, SGHFP) before final submission; NCSSL requires a bibliography entry.}
+% \label{tab:relwork-refs}
+% \small
+% \begin{tabular}{@{}p{2.1cm}p{10.4cm}@{}}
+% \toprule
+% \textbf{Method} & \textbf{What the source supports} \\
+% \midrule
+% DGI          & Patch-vs-summary mutual information; no random walks; transductive + inductive. \\
+% GMI          & Graphical MI between node representation and neighborhood, over features + topology. \\
+% MVGRL        & Adjacency + diffusion views; authors state $>2$ views / multi-scale does \emph{not} help. \\
+% GRACE        & Two views by corruption; node-level contrast; structure + attribute corruption. \\
+% GCA          & Adaptive augmentation via centrality (topology) and attribute-importance priors. \\
+% GraphCL      & Four augmentation families + study of combinations. \\
+% AFGRL        & Augmentation-free; alternative view from nodes sharing local structure + global semantics. \\
+% MA-GCL       & Perturbs encoder architectures (asymmetric/random/shuffling), not inputs. \\
+% Barlow Twins & Redundancy reduction via cross-correlation to identity; a vision method. \\
+% DCLN         & Cited as the graph redundancy-reduction counterpart (verify from full text). \\
+% GraphMAE     & \textbf{Feature} reconstruction: masking + scaled cosine error + re-mask. \\
+% MaskGAE      & Masks \textbf{edges/structure}, not features. \\
+% RARE         & Latent-space masked prediction (verify exact mechanism). \\
+% AmGCL        & Dirichlet-energy precoder + contrastive module (MI lower bound) + energy-based feature recon. \\
+% MATE         & Multi-view / attribute imputation (paywalled; verify per-node and shallow-encoder critiques). \\
+% MOBA         & Multi-view collaborative learning: reduce redundancy + maximize consistency between two views. \\
+% AIAE         & Autoencoder-based attribute imputation (verify imputation-quality framing). \\
+% HGCA         & Heterogeneous; unifies attribute completion + representation learning via unsupervised contrastive. \\
+% COMPLETER    & Incomplete multi-view clustering via contrastive prediction. \\
+% MCGC         & Learns a consensus graph with a contrastive regularizer because the graph may be noisy/incomplete. \\
+% SGHFP        & Feature propagation over hypergraphs for missing attributes (verify). \\
+% NCSSL        & Our prior work: neighborhood-centric SSL for attribute imputation (needs a bib entry). \\
+% \bottomrule
+% \end{tabular}
+% \end{table}
+
+
+
