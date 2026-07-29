@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="720" viewBox="0 0 1180 720" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <style>
+      .root  { fill:#2f2f2f; }
+      .part  { fill:#3b5b8c; }
+      .cat   { fill:#5a7fb5; }
+      .sub   { fill:#8fa9cf; }
+      .ours  { fill:#c0392b; }
+      .box   { rx:8; ry:8; stroke:#ffffff; stroke-width:1.5; }
+      .tlab  { fill:#ffffff; font-weight:bold; }
+      .meth  { fill:#555; font-size:12px; font-style:italic; }
+      .edge  { stroke:#9aa4b0; stroke-width:1.6; fill:none; }
+    </style>
+  </defs>
+
+  <!-- ================= EDGES ================= -->
+  <!-- root -> parts -->
+  <path class="edge" d="M240,60 C240,110 300,110 300,150"/>
+  <path class="edge" d="M240,60 C240,410 300,410 300,450"/>
+
+  <!-- PART 1 -> categories -->
+  <path class="edge" d="M330,182 C400,182 400,215 470,215"/>
+  <path class="edge" d="M330,182 C400,182 400,300 470,300"/>
+
+  <!-- Under Missing Info -> two subs -->
+  <path class="edge" d="M700,215 C770,215 770,200 840,200"/>
+  <path class="edge" d="M700,215 C770,215 770,255 840,255"/>
+
+  <!-- PART 2 -> categories -->
+  <path class="edge" d="M330,482 C400,482 400,470 470,470"/>
+  <path class="edge" d="M330,482 C400,482 400,560 470,560"/>
+  <path class="edge" d="M330,482 C400,482 400,650 470,650"/>
+
+  <!-- General SSL -> two subs -->
+  <path class="edge" d="M700,470 C770,470 770,455 840,455"/>
+  <path class="edge" d="M700,470 C770,470 770,510 840,510"/>
+
+  <!-- SSL-under-missing -> adjacent -->
+  <path class="edge" d="M700,560 C770,560 770,600 840,600"/>
+
+  <!-- ================= NODES ================= -->
+  <!-- ROOT -->
+  <rect class="box root" x="120" y="35" width="240" height="50"/>
+  <text class="tlab" x="240" y="58" text-anchor="middle" font-size="15">Graph Learning under</text>
+  <text class="tlab" x="240" y="76" text-anchor="middle" font-size="15">Missing Node Features</text>
+
+  <!-- PART 1 -->
+  <rect class="box part" x="180" y="150" width="150" height="64"/>
+  <text class="tlab" x="255" y="176" text-anchor="middle" font-size="13">Handling Missing</text>
+  <text class="tlab" x="255" y="194" text-anchor="middle" font-size="13">Information</text>
+
+  <!-- PART 1 categories -->
+  <rect class="box cat" x="470" y="190" width="230" height="52"/>
+  <text class="tlab" x="585" y="212" text-anchor="middle" font-size="12.5">Imputation-based</text>
+  <text class="tlab" x="585" y="230" text-anchor="middle" font-size="12.5">(Under Missing Information)</text>
+
+  <rect class="box cat" x="470" y="278" width="230" height="52"/>
+  <text class="tlab" x="585" y="300" text-anchor="middle" font-size="12.5">Imputation-Free /</text>
+  <text class="tlab" x="585" y="318" text-anchor="middle" font-size="12.5">Architectural</text>
+  <text class="meth" x="710" y="311" text-anchor="start">GCNMF, PaGCN, PCFI</text>
+
+  <!-- imputation subs -->
+  <rect class="box sub" x="840" y="178" width="230" height="44"/>
+  <text class="tlab" x="955" y="197" text-anchor="middle" font-size="12">Statistical / Propagation</text>
+  <text class="meth" x="955" y="214" text-anchor="middle" fill="#ffffff">KNN, NeighAggre, FP</text>
+
+  <rect class="box sub" x="840" y="234" width="230" height="44"/>
+  <text class="tlab" x="955" y="253" text-anchor="middle" font-size="12">Learned / Generative</text>
+  <text class="meth" x="955" y="270" text-anchor="middle" fill="#ffffff">SAT, SVGA, ITR, RITR, Amer</text>
+
+  <!-- PART 2 -->
+  <rect class="box part" x="180" y="450" width="150" height="64"/>
+  <text class="tlab" x="255" y="476" text-anchor="middle" font-size="13">Self-Supervised</text>
+  <text class="tlab" x="255" y="494" text-anchor="middle" font-size="13">Graph Learning</text>
+
+  <!-- PART 2 categories -->
+  <rect class="box cat" x="470" y="444" width="230" height="52"/>
+  <text class="tlab" x="585" y="466" text-anchor="middle" font-size="12.5">General SSL / Multi-View</text>
+  <text class="tlab" x="585" y="484" text-anchor="middle" font-size="12.5">(fully observed graphs)</text>
+
+  <rect class="box cat" x="470" y="534" width="230" height="52"/>
+  <text class="tlab" x="585" y="556" text-anchor="middle" font-size="12.5">SSL for Learning</text>
+  <text class="tlab" x="585" y="574" text-anchor="middle" font-size="12.5">Under Missingness</text>
+
+  <rect class="box ours" x="470" y="624" width="230" height="52"/>
+  <text class="tlab" x="585" y="646" text-anchor="middle" font-size="12.5">NESS (ours)</text>
+  <text class="tlab" x="585" y="664" text-anchor="middle" font-size="11">objective + view study, at scale</text>
+
+  <!-- general SSL subs -->
+  <rect class="box sub" x="840" y="433" width="245" height="44"/>
+  <text class="tlab" x="962" y="452" text-anchor="middle" font-size="12">Contrastive / Multi-View</text>
+  <text class="meth" x="962" y="469" text-anchor="middle" fill="#ffffff">DGI, GMI, MVGRL, GRACE, GCA</text>
+
+  <rect class="box sub" x="840" y="489" width="245" height="44"/>
+  <text class="tlab" x="962" y="508" text-anchor="middle" font-size="12">Masked / Reconstruction</text>
+  <text class="meth" x="962" y="525" text-anchor="middle" fill="#ffffff">GraphMAE, MaskGAE, RARE</text>
+
+  <!-- SSL-under-missing methods + adjacent -->
+  <rect class="box sub" x="840" y="578" width="245" height="44"/>
+  <text class="tlab" x="962" y="597" text-anchor="middle" font-size="11.5">AmGCL, MATE, MOBA, AIAE,</text>
+  <text class="tlab" x="962" y="613" text-anchor="middle" font-size="11.5">HGCA, D2PT, NCSSL</text>
+
+  <rect class="box sub" x="840" y="632" width="245" height="40" fill="#b7c4d6"/>
+  <text x="962" y="650" text-anchor="middle" font-size="11.5" fill="#2f2f2f" font-weight="bold">Adjacent Communities</text>
+  <text class="meth" x="962" y="666" text-anchor="middle">COMPLETER, MCGC, SGHFP</text>
+</svg>
