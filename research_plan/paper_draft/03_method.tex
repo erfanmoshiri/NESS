@@ -1,14 +1,28 @@
 \section{Method}
 \label{sec:method}
 
-We present \textbf{NESS}, a framework for learning under missing node features. NESS is deliberately modular: a feature-propagation prefill and a message-passing encoder produce node representations, onto which a set of \emph{pluggable} self-supervised objectives is layered. This modularity is intentional: our study of \emph{which} objectives help under missingness (Section~\ref{sec:experiments}) is enabled by treating the auxiliary objective as an interchangeable component rather than a fixed part of the architecture.
+We present \textbf{NESS}, a framework for learning under missing node features.
+NESS is deliberately modular: a feature-propagation prefill and a message-passing
+encoder produce node representations, onto which a set of \emph{pluggable}
+self-supervised objectives is layered. This modularity is intentional. Our study
+of which objectives help under missingness (Section~\ref{sec:experiments})
+is enabled by treating the auxiliary objective as an interchangeable component
+rather than a fixed part of the architecture.
 
 \subsection{Problem Formulation and Notation}
 \label{sec:method-problem}
 
-Let $G=(V,E,\mathbf{X})$ be an undirected attributed graph with $n=|V|$ nodes, edge set $E$, adjacency matrix $\mathbf{A}\in\{0,1\}^{n\times n}$, and feature matrix $\mathbf{X}\in\mathbb{R}^{n\times d}$. Each node $v_i$ has a label $y_i\in\{1,\dots,C\}$. We denote by $\tilde{\mathbf{A}}=\mathbf{D}^{-1/2}(\mathbf{A}+\mathbf{I})\mathbf{D}^{-1/2}$ the symmetrically normalized adjacency with self-loops, where $\mathbf{D}$ is the degree matrix.
+Let $G=(V,E,\mathbf{X})$ be an undirected attributed graph with $n=|V|$ nodes,
+edge set $E$, adjacency matrix $\mathbf{A}\in\{0,1\}^{n\times n}$, and feature
+matrix $\mathbf{X}\in\mathbb{R}^{n\times d}$. Each node $v_i$ has a label
+$y_i\in\{1,\dots,C\}$. We denote by $\tilde{\mathbf{A}}=\mathbf{D}^{-1/2}(\mathbf{A}
++\mathbf{I})\mathbf{D}^{-1/2}$ the symmetrically normalized adjacency with
+self-loops, where $\mathbf{D}$ is the degree matrix.
 
-Under \emph{attribute-missing} conditions, the node set partitions into an \textbf{observable} set $V_o$ and a \textbf{missing} set $V_m$, with $V_o\cup V_m=V$ and $V_o\cap V_m=\emptyset$. For a missing node $v_i\in V_m$, the entire feature vector is unobserved; we represent the observed input by zero-filling,
+Under \emph{attribute-missing} conditions, the node set partitions into an
+\textbf{observable} set $V_o$ and a \textbf{missing} set $V_m$, with $V_o\cup V_m
+=V$ and $V_o\cap V_m=\emptyset$. For a missing node $v_i\in V_m$, the entire
+feature vector is unobserved; we represent the observed input by zero-filling,
 \begin{equation}
     \label{eq:mask}
     \bar{\mathbf{x}}_i =
@@ -17,29 +31,50 @@ Under \emph{attribute-missing} conditions, the node set partitions into an \text
         \mathbf{0},   & v_i \in V_m,
     \end{cases}
 \end{equation}
-giving the masked feature matrix $\bar{\mathbf{X}}$. The set $V_m$ is sampled uniformly at random at a rate $\rho=|V_m|/n$. The goal is \emph{not} to reconstruct $\mathbf{X}$ but to learn node representations $\mathbf{Z}\in\mathbb{R}^{n\times h}$ that support accurate classification of the missing nodes $V_m$, measured by macro-F1.
+giving the masked feature matrix $\bar{\mathbf{X}}$. Following a completely random missing pattern, $V_m$ is sampled uniformly at a rate $\rho=|V_m|/n$.
+The goal is \emph{not} to reconstruct $\mathbf{X}$ but to learn node
+representations $\mathbf{Z}\in\mathbb{R}^{n\times h}$ that support accurate
+classification of the missing nodes $V_m$, measured by macro-F1.
 
 \subsection{Overview}
 \label{sec:method-overview}
 
-NESS comprises four stages (Figure~\ref{fig:overview}): (1)~a \emph{feature-propagation prefill} that fills missing rows of $\bar{\mathbf{X}}$ with long-range structural signal; (2)~a message-passing \emph{encoder} that maps the prefilled features to representations $\mathbf{Z}$; (3)~a \emph{classification head} trained on observable labels; and (4)~a set of \emph{self-supervised objectives} that shape $\mathbf{Z}$. The total training loss combines the supervised and self-supervised terms. We describe each stage below.
+NESS comprises four stages (Figure~\ref{fig:overview}): (1)~a \emph{feature-
+propagation prefill} that fills missing rows of $\bar{\mathbf{X}}$ with long-range
+structural signal; (2)~a message-passing \emph{encoder} that maps the prefilled
+features to representations $\mathbf{Z}$; (3)~a \emph{classification head} trained
+on observable labels; and (4)~a set of \emph{self-supervised objectives} that
+shape $\mathbf{Z}$. The total training loss combines the supervised and
+self-supervised terms. We describe each stage below.
 
 \subsection{Feature-Propagation Prefill}
 \label{sec:method-prefill}
 
-A shallow message-passing encoder starves when a node's neighborhood is largely empty, which is precisely the regime induced by high missingness. To supply missing nodes with signal before encoding, we prefill $\bar{\mathbf{X}}$ using Feature Propagation~[FP]: features are diffused over the graph while observed rows are reset to their true values at every step. Starting from $\mathbf{H}^{(0)}=\bar{\mathbf{X}}$,
+A shallow message-passing encoder starves when a node's neighborhood is largely
+empty, which is precisely the regime induced by high missingness. To supply
+missing nodes with signal before encoding, we prefill $\bar{\mathbf{X}}$ using
+Feature Propagation~\cite{rossi2022unreasonable}: features are diffused over the graph while observed
+rows are reset to their true values at every step. Starting from
+$\mathbf{H}^{(0)}=\bar{\mathbf{X}}$,
 \begin{equation}
     \label{eq:fp}
     \mathbf{H}^{(t+1)} = \tilde{\mathbf{A}}\,\mathbf{H}^{(t)},
     \qquad
     \mathbf{H}^{(t+1)}_{i,:} = \mathbf{x}_i \;\; \forall\, v_i \in V_o,
 \end{equation}
-iterated for $T$ steps (we use $T=40$). The prefilled matrix $\hat{\mathbf{X}}=\mathbf{H}^{(T)}$ replaces $\bar{\mathbf{X}}$ as the encoder input. The reset in \eqref{eq:fp} enforces the observed values as boundary conditions, so the diffusion solves a Dirichlet energy minimization that propagates observed features into missing regions. Prefill is a one-time preprocessing step of cost $O(|E|\,d\,T)$.
+iterated for $T$ steps (we use $T=40$). The prefilled matrix
+$\hat{\mathbf{X}}=\mathbf{H}^{(T)}$ replaces $\bar{\mathbf{X}}$ as the encoder
+input. The reset in \eqref{eq:fp} enforces the observed values as boundary
+conditions, so the diffusion solves a Dirichlet energy minimization that
+propagates observed features into missing regions. Prefill is a one-time
+preprocessing step of cost $O(|E|\,d\,T)$.
 
 \subsection{Encoder and Views}
 \label{sec:method-encoder}
 
-The encoder $f_\theta$ is an $L$-layer GraphSAGE~[GraphSAGE] network. At layer $\ell$, node $v_i$ updates its representation by combining a transform of its own state with an aggregate of its neighbors $\mathcal{N}(i)$,
+The encoder $f_\theta$ is an $L$-layer GraphSAGE~\cite{hamilton2017inductive} network. At layer
+$\ell$, node $v_i$ updates its representation by combining a transform of its own
+state with an aggregate of its neighbors $\mathcal{N}(i)$,
 \begin{equation}
     \label{eq:sage}
     \mathbf{h}_i^{(\ell)} = \sigma\!\Big(
@@ -48,21 +83,30 @@ The encoder $f_\theta$ is an $L$-layer GraphSAGE~[GraphSAGE] network. At layer $
         \mathrm{mean}_{j\in\mathcal{N}(i)}\,\mathbf{h}_j^{(\ell-1)}
     \Big),
 \end{equation}
-with $\mathbf{h}_i^{(0)}=\hat{\mathbf{x}}_i$ and $\sigma$ a nonlinearity. The separate self-transform $\mathbf{W}_{\text{self}}$ preserves each node's own (prefilled) signal through depth, which we find important under missingness (Section~\ref{sec:experiments}).
+with $\mathbf{h}_i^{(0)}=\hat{\mathbf{x}}_i$ and $\sigma$ a nonlinearity. The
+separate self-transform $\mathbf{W}_{\text{self}}$ preserves each node's own
+(prefilled) signal through depth, which we find important under missingness
+(Section~\ref{sec:experiments}).
 
-To support view-based objectives, we form two stochastic views by independent random edge-masking of $G$, encode each, and fuse them into the final representation,
+To support view-based objectives, we form two stochastic views by independent
+random edge-masking of $G$, encode each, and fuse them into the final
+representation,
 \begin{equation}
     \label{eq:views}
     \mathbf{Z}^{(1)} = f_\theta(\hat{\mathbf{X}}, G^{(1)}),\quad
     \mathbf{Z}^{(2)} = f_\theta(\hat{\mathbf{X}}, G^{(2)}),\quad
     \mathbf{Z} = \tfrac{1}{2}\big(\mathbf{Z}^{(1)}+\mathbf{Z}^{(2)}\big),
 \end{equation}
-where $G^{(1)},G^{(2)}$ are edge-masked variants of $G$. The fused $\mathbf{Z}$ is used by the classification head and all objectives.
+where $G^{(1)},G^{(2)}$ are edge-masked variants of $G$. The fused $\mathbf{Z}$ is
+used by the classification head and all objectives.
+[Note that the view generation method is something we also expriment different options for, and can modulary change, but we found this is best setting for our problem]
 
 \subsection{Learning Objectives}
 \label{sec:method-objectives}
 
-\paragraph{Classification.} A head $g_\phi$ maps representations to class logits, trained with cross-entropy on \emph{observable} nodes only (no label leakage to $V_m$),
+\textbf{Classification:}
+A head $g_\phi$ maps representations to class logits, trained with cross-entropy on
+\emph{observable} nodes only (no label leakage to $V_m$),
 \begin{equation}
     \label{eq:cls}
     \mathcal{L}_{\text{cls}}
@@ -70,15 +114,22 @@ where $G^{(1)},G^{(2)}$ are edge-masked variants of $G$. The fused $\mathbf{Z}$ 
       \mathrm{CE}\big(g_\phi(\mathbf{z}_i),\, y_i\big).
 \end{equation}
 
-\paragraph{Edge reconstruction.} A structural objective encourages $\mathbf{Z}$ to preserve connectivity. Using an edge decoder $\psi$, positive (observed) edges are contrasted against sampled negatives $E^-$,
+\textbf{Edge reconstruction:}
+A structural objective encourages $\mathbf{Z}$ to preserve connectivity. Using an
+edge decoder $\psi$, positive (observed) edges are contrasted against sampled
+negatives $E^-$,
 \begin{equation}
     \label{eq:edge}
     \mathcal{L}_{\text{edge}}
     = -\!\!\sum_{(i,j)\in E}\!\!\log \sigma\big(\psi(\mathbf{z}_i,\mathbf{z}_j)\big)
       -\!\!\sum_{(i,j)\in E^-}\!\!\log\big(1-\sigma(\psi(\mathbf{z}_i,\mathbf{z}_j))\big).
 \end{equation}
+[before this section, do we ever explain that we mask some edges in view1, so that we predict that here as an objective? if yes, please specify at appropriate section]
 
-\paragraph{Contrastive (view agreement).} We align the two views with a redundancy-reduction (Barlow-Twins~[BarlowTwins]) objective on their cross-correlation matrix $\mathcal{C}$, computed over the batch dimension of the projected views,
+\textbf{Contrastive (view agreement):}
+We align the two views with a redundancy-reduction (Barlow-Twins~[BarlowTwins])
+objective on their cross-correlation matrix $\mathcal{C}$, computed over the batch
+dimension of the projected views,
 \begin{equation}
     \label{eq:con}
     \mathcal{L}_{\text{con}}
@@ -86,9 +137,13 @@ where $G^{(1)},G^{(2)}$ are edge-masked variants of $G$. The fused $\mathbf{Z}$ 
       + \lambda \sum_{k}\sum_{k'\neq k}\mathcal{C}_{kk'}^2 .
 \end{equation}
 
-\paragraph{Self-supervised auxiliary objective.} The distinctive component of NESS is a pluggable self-supervised objective $\mathcal{L}_{\text{ssl}}$ that shapes $\mathbf{Z}$ using structure- or label-derived targets requiring no missing-node features. Rather than committing to a single objective, we treat $\mathcal{L}_{\text{ssl}}$ as an interchangeable component and study a family of candidates spanning distinct design axes: \emph{feature-neighborhood} (predict the neighborhood mean or spread), \emph{feature-reconstruction} (masked-feature recovery), \emph{structural} (multi-hop reachability, distance ranking, anchor-distance to landmarks), and \emph{label-based} (neighbor label-histogram, semi-supervised). Each is defined formally in Appendix~\ref{app:objectives}; their comparative analysis, which objectives help and when, is the subject of Section~\ref{sec:experiments}. Our reported model instantiates $\mathcal{L}_{\text{ssl}}$ with the label-histogram and multi-hop reachability objectives.
 
-\paragraph{Total objective.} The training loss is a weighted combination,
+\textbf{Self-supervised auxiliary objective:} The distinctive component of NESS is a pluggable self-supervised objective $\mathcal{L}_{\text{ssl}}$ that shapes $\mathbf{Z}$ using structure- or label-derived targets requiring no missing-node features. Rather than committing to a single objective, we treat $\mathcal{L}_{\text{ssl}}$ as an interchangeable component and study a family of candidates spanning distinct design axes: \emph{feature-neighborhood} (predict the neighborhood mean or spread), \emph{feature-reconstruction} (masked-feature recovery), \emph{structural} (multi-hop reachability, distance ranking, anchor-distance to landmarks), and \emph{label-based} (neighbor label-histogram, semi-supervised). Each is defined formally in Appendix~\ref{app:objectives}; their comparative analysis, which objectives help and when, is the subject of Section~\ref{sec:experiments}. Our reported model instantiates $\mathcal{L}_{\text{ssl}}$ with the label-histogram and multi-hop reachability objectives.
+[so explain and show equations of label-histogram and multi-hop reachability objectives (path) here shortly too]
+
+
+\paragraph{Total objective.}
+The training loss is a weighted combination,
 \begin{equation}
     \label{eq:total}
     \mathcal{L}
@@ -97,9 +152,19 @@ where $G^{(1)},G^{(2)}$ are edge-masked variants of $G$. The fused $\mathbf{Z}$ 
     + w_{\text{con}}\,\mathcal{L}_{\text{con}}
     + w_{\text{ssl}}\,\mathcal{L}_{\text{ssl}},
 \end{equation}
-with nonnegative weights $w_{\cdot}$. Setting $w_{\text{ssl}}=0$ recovers a strong self-supervision-free baseline used throughout our analysis.
+with nonnegative weights $w_{\cdot}$. Setting $w_{\text{ssl}}=0$ recovers a strong
+self-supervision-free baseline used throughout our analysis.
 
 \subsection{Training}
 \label{sec:method-training}
-
-For large graphs, we partition $G$ into clusters~[ClusterGCN] and train full-batch within each cluster; small graphs are trained full-batch directly. Self-supervised targets that depend on global structure (e.g.\ landmark distances, label histograms) are computed once on the full graph and indexed per cluster. Unless otherwise stated, we use an $L=3$ layer encoder of width $h=128$, dropout $0.3$, and loss weights $(w_{\text{cls}},w_{\text{edge}},w_{\text{con}},w_{\text{ssl}})$ selected in Section~\ref{sec:experiments}; the learning rate is set per dataset. Optimization uses Adam. The per-epoch cost is dominated by the encoder forward/backward pass, $O(|E|\,h + n\,h^2)$ per cluster, matching standard message-passing GNNs.
+[is this settings except for clusters also specified in experiment setup too? if yes, remove from here. if not, let me know to move it there]
+For large graphs, we partition $G$ into clusters based on~\cite{chiang2019cluster} and train
+full-batch within each cluster; small graphs are trained full-batch directly.
+Self-supervised targets that depend on global structure (e.g.\ landmark distances,
+label histograms) are computed once on the full graph and indexed per cluster.
+Unless otherwise stated, we use an $L=3$ layer encoder of width $h=128$, dropout
+$0.3$, and loss weights $(w_{\text{cls}},w_{\text{edge}},w_{\text{con}},
+w_{\text{ssl}})$ selected in Section~\ref{sec:experiments}; the learning rate is
+set per dataset. Optimization uses Adam. The per-epoch cost is dominated by the
+encoder forward/backward pass, $O(|E|\,h + n\,h^2)$ per cluster, matching standard
+message-passing GNNs.
