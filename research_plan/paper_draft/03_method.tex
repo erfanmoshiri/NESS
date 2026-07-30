@@ -97,9 +97,8 @@ representation,
     \mathbf{Z}^{(2)} = f_\theta(\hat{\mathbf{X}}, G^{(2)}),\quad
     \mathbf{Z} = \tfrac{1}{2}\big(\mathbf{Z}^{(1)}+\mathbf{Z}^{(2)}\big),
 \end{equation}
-where $G^{(1)},G^{(2)}$ are edge-masked variants of $G$. The fused $\mathbf{Z}$ is
-used by the classification head and all objectives.
-[Note that the view generation method is something we also expriment different options for, and can modulary change, but we found this is best setting for our problem]
+where $G^{(1)},G^{(2)}$ are edge-masked variants of $G$, and we denote by $E_m$ the edges removed to form $G^{(1)}$, which serve as targets for the edge-reconstruction objective below. The fused $\mathbf{Z}$ is
+used by the classification head and all objectives. The view-generation method is itself a modular choice; we experiment with several options in Section~\ref{sec:experiments} and adopt edge-masking as the best setting for our problem.
 
 \subsection{Learning Objectives}
 \label{sec:method-objectives}
@@ -115,19 +114,19 @@ A head $g_\phi$ maps representations to class logits, trained with cross-entropy
 \end{equation}
 
 \textbf{Edge reconstruction:}
-A structural objective encourages $\mathbf{Z}$ to preserve connectivity. Using an
-edge decoder $\psi$, positive (observed) edges are contrasted against sampled
-negatives $E^-$,
+A structural objective encourages $\mathbf{Z}$ to preserve connectivity. The positives are the edges held out when forming view $G^{(1)}$ in \eqref{eq:views}; using an
+edge decoder $\psi$, these are contrasted against sampled
+negatives $E^-$, a set of randomly drawn non-adjacent node pairs,
 \begin{equation}
     \label{eq:edge}
     \mathcal{L}_{\text{edge}}
-    = -\!\!\sum_{(i,j)\in E}\!\!\log \sigma\big(\psi(\mathbf{z}_i,\mathbf{z}_j)\big)
-      -\!\!\sum_{(i,j)\in E^-}\!\!\log\big(1-\sigma(\psi(\mathbf{z}_i,\mathbf{z}_j))\big).
+    = -\!\!\sum_{(i,j)\in E_m}\!\!\log \sigma\big(\psi(\mathbf{z}_i,\mathbf{z}_j)\big)
+      -\!\!\sum_{(i,j)\in E^-}\!\!\log\big(1-\sigma(\psi(\mathbf{z}_i,\mathbf{z}_j))\big),
 \end{equation}
-[before this section, do we ever explain that we mask some edges in view1, so that we predict that here as an objective? if yes, please specify at appropriate section]
+where $E_m$ is the set of masked edges.
 
 \textbf{Contrastive (view agreement):}
-We align the two views with a redundancy-reduction (Barlow-Twins~[BarlowTwins])
+We align the two views with a redundancy-reduction (Barlow-Twins~\cite{zbontar2021barlow})
 objective on their cross-correlation matrix $\mathcal{C}$, computed over the batch
 dimension of the projected views,
 \begin{equation}
@@ -138,11 +137,26 @@ dimension of the projected views,
 \end{equation}
 
 
-\textbf{Self-supervised auxiliary objective:} The distinctive component of NESS is a pluggable self-supervised objective $\mathcal{L}_{\text{ssl}}$ that shapes $\mathbf{Z}$ using structure- or label-derived targets requiring no missing-node features. Rather than committing to a single objective, we treat $\mathcal{L}_{\text{ssl}}$ as an interchangeable component and study a family of candidates spanning distinct design axes: \emph{feature-neighborhood} (predict the neighborhood mean or spread), \emph{feature-reconstruction} (masked-feature recovery), \emph{structural} (multi-hop reachability, distance ranking, anchor-distance to landmarks), and \emph{label-based} (neighbor label-histogram, semi-supervised). Each is defined formally in Appendix~\ref{app:objectives}; their comparative analysis, which objectives help and when, is the subject of Section~\ref{sec:experiments}. Our reported model instantiates $\mathcal{L}_{\text{ssl}}$ with the label-histogram and multi-hop reachability objectives.
-[so explain and show equations of label-histogram and multi-hop reachability objectives (path) here shortly too]
+\textbf{Self-supervised auxiliary objective:} The distinctive component of NESS is a pluggable self-supervised objective $\mathcal{L}_{\text{ssl}}$ that shapes $\mathbf{Z}$ using structure- or label-derived targets requiring no missing-node features. Rather than committing to a single objective, we treat $\mathcal{L}_{\text{ssl}}$ as an interchangeable component and study a family of candidates spanning distinct design axes: \emph{feature-neighborhood} (predict the neighborhood mean or spread), \emph{feature-reconstruction} (masked-feature recovery), \emph{structural} (multi-hop reachability, distance ranking, anchor-distance to landmarks), and \emph{label-based} (neighbor label-histogram, semi-supervised). Each is defined formally in Appendix~\ref{app:objectives}; their comparative analysis, which objectives help and when, is the subject of Section~\ref{sec:experiments}.
+
+Our reported model instantiates $\mathcal{L}_{\text{ssl}}$ with two objectives. The label-histogram objective predicts, for each observable node, the class distribution $\mathbf{p}_i$ of its observable neighbors, using a head $h_{\text{hist}}$ trained with a KL divergence,
+\begin{equation}
+    \label{eq:hist}
+    \mathcal{L}_{\text{hist}} = \frac{1}{|V_o|}\sum_{v_i\in V_o}
+      \mathrm{KL}\big(\mathbf{p}_i \,\|\, \mathrm{softmax}(h_{\text{hist}}(\mathbf{z}_i))\big).
+\end{equation}
+The multi-hop reachability (path) objective samples random walks to obtain node pairs $(s,e)$ reachable within a few hops as positives and distant pairs $(s,e^-)$ as negatives, and scores them with a head $h_{\text{path}}$,
+\begin{equation}
+    \label{eq:path}
+    \mathcal{L}_{\text{path}} = \tfrac{1}{2}\Big[
+        \mathrm{BCE}\big(h_{\text{path}}(\mathbf{z}_s\!\odot\!\mathbf{z}_e),\,1\big)
+        + \mathrm{BCE}\big(h_{\text{path}}(\mathbf{z}_s\!\odot\!\mathbf{z}_{e^-}),\,0\big)
+    \Big].
+\end{equation}
+Here $\mathcal{L}_{\text{ssl}}=\mathcal{L}_{\text{hist}}+\mathcal{L}_{\text{path}}$.
 
 
-\paragraph{Total objective.}
+\textbf{Total objective:}
 The training loss is a weighted combination,
 \begin{equation}
     \label{eq:total}
@@ -157,14 +171,10 @@ self-supervision-free baseline used throughout our analysis.
 
 \subsection{Training}
 \label{sec:method-training}
-[is this settings except for clusters also specified in experiment setup too? if yes, remove from here. if not, let me know to move it there]
-For large graphs, we partition $G$ into clusters based on~\cite{chiang2019cluster} and train
+For large graphs, we partition $G$ into clusters following~\cite{chiang2019cluster} and train
 full-batch within each cluster; small graphs are trained full-batch directly.
 Self-supervised targets that depend on global structure (e.g.\ landmark distances,
 label histograms) are computed once on the full graph and indexed per cluster.
-Unless otherwise stated, we use an $L=3$ layer encoder of width $h=128$, dropout
-$0.3$, and loss weights $(w_{\text{cls}},w_{\text{edge}},w_{\text{con}},
-w_{\text{ssl}})$ selected in Section~\ref{sec:experiments}; the learning rate is
-set per dataset. Optimization uses Adam. The per-epoch cost is dominated by the
+The per-epoch cost is dominated by the
 encoder forward/backward pass, $O(|E|\,h + n\,h^2)$ per cluster, matching standard
-message-passing GNNs.
+message-passing GNNs. Full hyperparameter and optimization settings are given in Section~\ref{sec:setup}.

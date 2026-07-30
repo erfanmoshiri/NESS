@@ -3,30 +3,28 @@
 \section{Experiments and Results}\label{sec:experiments}
 
 
-Our experiments serve two goals. We first establish that NESS is an effective model for learning under missing node features: it outperforms baselines spanning every category of the problem (Section~\ref{sec:exp-main}), and its advantage widens as features become scarcer (Section~\ref{sec:exp-rate}). We then turn to the study that motivates the paper, asking not merely whether self-supervision helps but \emph{when} and \emph{why} [instead say it more formal-> under what circum and what setting, and the reasons behind its effectiveness]. 
-We show that its benefit is conditional: only some objectives help (Section~\ref{sec:exp-objectives}), for reasons visible in their mechanism and training dynamics (Section~\ref{sec:exp-dynamics}); the benefit emerges primarily under severe missingness (Section~\ref{sec:exp-missingness-regime}) and on dense rather than sparse binary features (Section~\ref{sec:exp-regime}). Finally, we justify NESS's design choices and establish its transferability and scalability (Sections~\ref{sec:exp-design} and\ref{sec:exp-scalability}). 
+Our experiments serve two goals. We first establish that NESS is an effective model for learning under missing node features: it outperforms baselines spanning every category of the problem (Section~\ref{sec:exp-main}), and its advantage widens as features become scarcer (Section~\ref{sec:exp-rate}). We then turn to the study that motivates the paper: not merely whether self-supervision helps, but under which conditions it does and what explains its effectiveness.
+We show that its benefit is conditional: only some objectives help (Section~\ref{sec:exp-objectives}), for reasons visible in their mechanism and training dynamics (Section~\ref{sec:exp-why}); the benefit emerges primarily under severe missingness (Section~\ref{sec:exp-missingness-regime}) and on dense rather than sparse binary features (Section~\ref{sec:exp-regime}). Finally, we justify NESS's design choices and establish its transferability and scalability (Sections~\ref{sec:exp-design} and~\ref{sec:exp-scalability}).
 
 
 \section{Experimental Setup}
 \label{sec:setup}
 
-\paragraph{Datasets.} We evaluate on five node-classification benchmarks. Four are small, [yet convention in literature when solving graph missingness] citation and co-purchase graphs with sparse binary bag-of-words attributes: Cora, CiteSeer~\cite{yang2016revisiting}, Amazon-Computers (AMAC), and Amazon-Photo (AMAP)~\cite{shchur2018pitfalls}. The fifth, ogbn-arxiv~\cite{hu2020open}, is a large graph with dense, continuous features (169K nodes, 128-dimensional embeddings). 
-[explain why we chose it shortly -> being more realworld. bigger and new challenges that help eperiment SSL more unified, etc.]
+\paragraph{Datasets.} We evaluate on five node-classification benchmarks. Four are small but conventional benchmarks in the graph-missingness literature, citation and co-purchase graphs with sparse binary bag-of-words attributes: Cora, CiteSeer~\cite{yang2016revisiting}, Amazon-Computers (AMAC), and Amazon-Photo (AMAP)~\cite{shchur2018pitfalls}. The fifth, ogbn-arxiv~\cite{hu2020open}, is a large graph with dense, continuous features (169K nodes, 128-dimensional embeddings).
+We center our study on ogbn-arxiv as a larger, more realistic benchmark whose dense continuous features and scale expose challenges that small binary graphs do not, making it better suited to studying self-supervision under missingness.
 Their statistics are summarized in Table~\ref{tab:datasets}. This spread lets us study behavior across both feature regimes (sparse binary vs.\ dense continuous) and scales. 
 
 
 \paragraph{Missingness protocol.} 
 We simulate attribute-missing conditions by selecting a fraction $\rho$ of nodes uniformly at random and removing their entire feature vector (zero-filled). The feature mask and the label split coincide: the masked nodes are split evenly into validation and test sets, and the remaining feature-observable nodes form the training set. The classification loss is computed only on observable-node labels, so a node is either feature-observable and used for training or feature-missing and held out for evaluation, and no label or feature information from the evaluated nodes leaks into training.
 Message passing operates over the full graph throughout, so missing nodes still receive representations via propagation from their observed neighbors; only their labels and input features are withheld.
-We use $\rho=0.4$ for the main comparison against other benchmarks, 0.8 for rest of experiments, and sweep $\rho \in \{0.2,0.4,0.6,0.8,0.9,0.95\}$ for the robustness analysis.
+We use $\rho=0.4$ for the main comparison against other benchmarks, $0.8$ for the rest of the experiments, and sweep $\rho \in \{0.2,0.4,0.6,0.8,0.9,0.95\}$ for the robustness analysis.
 
 
 
-\paragraph{Methods compared.} We compare NESS against baselines spanning every category of the missing-feature landscape: 
-[NOT LIKE THIS. cite each method like in related work. explain each in 1 proper sentence so the reader knows its category and their method shotly.]
-% non-parametric imputation (NeighAggre, KNN), scalable propagation imputation (Feature Propagation, FP), an imputation-free work-around (PaGCN), per-node parameterization (MATE), and a standard zero-filled GNN (GraphSAGE).
+\paragraph{Methods compared.} We compare NESS against baselines spanning every category of the missing-feature landscape. \textbf{NeighAggre} and \textbf{KNN} are non-parametric imputers that fill a missing node from its neighbors or nearest observed nodes~\cite{you2020handling}. \textbf{Feature Propagation} (FP) is a scalable propagation-based imputer that diffuses observed features over the graph~\cite{rossi2022unreasonable}. \textbf{PaGCN} is an imputation-free architecture that aggregates only observed feature entries~\cite{zhang2024incomplete}. \textbf{MATE} is a per-node method that learns a separate embedding for each missing node~\cite{peng2023mate}. \textbf{GraphSAGE} is a standard zero-filled GNN baseline~\cite{hamilton2017inductive}.
 
-We report macro-F1 (as primary metric), and accuracy on the masked test nodes. All results are averaged over three random seeds.
+We report macro-F1 as the primary metric, along with accuracy on the masked test nodes. All results are averaged over three random seeds.
 
 All learnable methods are trained under an identical budget and protocol: the same number of epochs (800, with early stopping on validation macro-F1, patience of 20 evaluation intervals), the same optimizer (Adam), the same per-dataset learning rate, the same hidden width (128), and the same missingness splits and seeds. Comparisons therefore reflect the methods themselves rather than differences in tuning. The learning rate is $10^{-3}$ for the large and denser graphs (ogbn-arxiv, AMAC), where a higher rate is unstable, and $10^{-2}$ for the remaining small graphs, applied uniformly to every method on a given dataset.
 
@@ -59,7 +57,7 @@ ogbn-arxiv  & 169{,}343   & 1{,}166{,}243 & 128     & 40 & dense embedding \\
 \subsection{Main Comparison}
 \label{sec:exp-main}
 
-We first compare NESS against baselines under MCAR missingness at rate $0.4$. Table~\ref{tab:main} reports test macro-F1 and accuracy on the masked nodes, averaged over three seeds.
+We first compare NESS against baselines under random missingness at rate $0.4$. Table~\ref{tab:main} reports test macro-F1 and accuracy on the masked nodes, averaged over three seeds.
 
 On ogbn-arxiv, the large dense-embedding graph that is the primary target of this work, NESS attains the highest performance, reaching $0.454$ macro-F1 compared to $0.439$ for the strongest baseline (FP) and $0.404$ for MATE, and the highest accuracy ($0.676$). NESS also performs favorably on the small binary graphs, achieving the best macro-F1 on CiteSeer ($0.735$) and AMAC ($0.911$) and results within a narrow margin of the best on Cora and AMAP. On these small, sparse benchmarks the strongest methods (FP, PaGCN, MATE) perform comparably and the differences are small; a more pronounced separation emerges on the large dense graph, consistent with the regime analysis in Section~\ref{sec:exp-regime} and with the widening advantage under increasing missingness reported in Section~\ref{sec:exp-rate}.
 
@@ -99,13 +97,12 @@ To assess how each method behaves as features become increasingly scarce, we var
 
 NESS attains the highest macro-F1 at every rate except $0.6$, where MATE is marginally higher ($0.458$ versus $0.449$). More importantly, its performance is the most stable across the range, declining only from $0.449$ at $\rho=0.2$ to $0.415$ at $\rho=0.9$. The baselines degrade substantially more over the same interval: FP falls from $0.442$ to $0.354$, PaGCN from $0.402$ to $0.256$, and KNN from $0.345$ to $0.258$. Consequently, the margin in favor of NESS widens as missingness increases, and it is largest at the most severe rate ($0.415$ versus $0.378$ for MATE and $0.354$ for FP at $\rho=0.9$). This indicates that the advantage of NESS is most pronounced precisely in the regime where the problem is hardest and where features are least available.
 
-[in table below, Center the numbers in first column. currently aligned left]
 \begin{table}[t]
 \centering
 \caption{Macro-F1 on ogbn-arxiv as a function of the missing rate $\rho$, Best per rate in \textbf{bold}.}
 \label{tab:rate}
 \small
-\begin{tabular}{@{}lccccc@{}}
+\begin{tabular}{@{}cccccc@{}}
 \toprule
 \textbf{Missing rate ($\rho$)} & \textbf{KNN} & \textbf{FP} & \textbf{PaGCN} & \textbf{MATE} & \textbf{NESS} \\
 \midrule
@@ -126,8 +123,8 @@ NESS attains the highest macro-F1 at every rate except $0.6$, where MATE is marg
 
 We next study the self-supervised objectives themselves. Holding the encoder and all other components fixed, we train NESS with one objective at a time and with the combined default (hist + path), and compare against a no-SSL baseline (classification only) and a single-view variant that removes the second view and the contrastive term. Table~\ref{tab:objectives} reports test macro-F1 on ogbn-arxiv at $80\%$ missingness.
 
-Self-supervision helps in most configurations: all but one objective improve over the no-SSL baseline, and the combined set (hist + path) is best, improving macro-F1 by $0.022$. The label-aware neighbor-histogram (hist) is the strongest single objective ($+0.020$), followed by feature reconstruction ($+0.017$); the structural and feature-statistic objectives give smaller positive lifts, and only the neighbor-spread objective (stats) is marginally negative. The usefulness of feature reconstruction is consistent with our prior work on feature-based self-supervision for imputation~[NCSSL]. Removing the second view and contrastive term (single-view) yields the weakest configuration, below even no-SSL, indicating that the two-view contrastive structure itself contributes. 
-[I feel like here its good to add a sentence that: honestly the improvements mild, meaning that SSL helps with a small jump and most of work is done by other components]
+Self-supervision helps in most configurations: all but one objective improve over the no-SSL baseline, and the combined set (hist + path) is best, improving macro-F1 by $0.022$. The label-aware neighbor-histogram (hist) is the strongest single objective ($+0.020$), followed by feature reconstruction ($+0.017$); the structural and feature-statistic objectives give smaller positive lifts, and only the neighbor-spread objective (stats) is marginally negative. The usefulness of feature reconstruction is consistent with our prior work on feature-based self-supervision for imputation~\cite{moshiri2026neighborhood}. Removing the second view and contrastive term (single-view) yields the weakest configuration, below even no-SSL, indicating that the two-view contrastive structure itself contributes.
+We note that these gains are modest in absolute terms: the bulk of NESS's performance comes from the proper choice of prefill, encoder, and contrastive views, with self-supervision providing a consistent additional lift.
 The objectives thus differ substantially in how much they help; Section~\ref{sec:exp-why} identifies the property that explains this spread.
 
 \begin{table}[t]
@@ -160,7 +157,7 @@ single-view           & 0.416 & $-0.009$ \\
 
 The objective ablation in Section~\ref{sec:exp-objectives} shows that objectives differ widely in how much they help. Here we identify the property that explains this: how class-relevant the objective's target is. For each objective with a per-node target, we fit a logistic-regression probe, a simple classifier trained to predict a node's class from the objective's target alone, and measure its macro-F1 as a proxy for the class-relevance of that target. We then relate it to the objective's downstream lift from Section~\ref{sec:exp-objectives}. Relational objectives (path, triplet), whose target is a relation between sampled nodes rather than a per-node vector, are excluded from this analysis.
 
-Figure~\ref{fig:probe-vs-lift} plots the two quantities. The more class-relevant an objective's target, the more it improves downstream classification: the neighbor label-histogram (hist) has both the most class-relevant target and the largest lift, whereas the neighbor-spread target (stats) is the least class-relevant and is the only objective that does not help. Feature reconstruction (recon) also provides a useful signal, consistent with our prior work on feature-based self-supervision for imputation~[NCSSL]. This explains why the label-aware histogram is the most reliable objective, and why we pair it with a structural objective in NESS.
+Figure~\ref{fig:probe-vs-lift} plots the two quantities. The more class-relevant an objective's target, the more it improves downstream classification: the neighbor label-histogram (hist) has both the most class-relevant target and the largest lift, whereas the neighbor-spread target (stats) is the least class-relevant and is the only objective that does not help. Feature reconstruction (recon) also provides a useful signal, consistent with our prior work on feature-based self-supervision for imputation~\cite{moshiri2026neighborhood}. This explains why the label-aware histogram is the most reliable objective, and why we pair it with a structural objective in NESS.
 
 The training dynamics corroborate this picture. Figure~\ref{fig:loss-curves} plots the per-objective self-supervised loss over training. Feature-space objectives with low-variance targets fall to a small value within a few epochs and then remain flat, providing little further gradient, while the label and structural objectives begin at a higher loss and continue to decrease throughout training, supplying informative supervision for longer. An objective is therefore useful when its target is both class-relevant and non-trivial to fit.
 
@@ -296,7 +293,7 @@ NESS (full)                       & \textbf{0.447} \\
 \subsection{Transferability of the Objective}
 \label{sec:exp-transfer}
 
-To Show that a effective SSL objective reflects a general principle rather than a property of our architecture, we run an experiment to see if it improves other backbones as well. We add the label-histogram objective to two baselines, GraphSAGE and PaGCN, as an auxiliary loss and measure the change in test macro-F1 on ogbn-arxiv at $80\%$ missingness. Table~\ref{tab:transfer} shows that both backbones improve when the objective is added, indicating that the benefit transfers across architectures and is driven by the objective rather than by NESS specifically. The gains are modest, consistent with the objective supplying a semi-supervised signal that is most valuable where the backbone is otherwise weak.
+To show that an effective SSL objective reflects a general principle rather than a property of our architecture, we test whether it improves other backbones as well. We add the label-histogram objective to two baselines, GraphSAGE and PaGCN, as an auxiliary loss and measure the change in test macro-F1 on ogbn-arxiv at $80\%$ missingness. Table~\ref{tab:transfer} shows that both backbones improve when the objective is added, indicating that the benefit transfers across architectures and is driven by the objective rather than by NESS specifically. The gains are modest, consistent with the objective supplying a semi-supervised signal that is most valuable where the backbone is otherwise weak.
 
 \begin{table}[t]
 \centering
