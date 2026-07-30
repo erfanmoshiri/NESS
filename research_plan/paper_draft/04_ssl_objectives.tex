@@ -11,6 +11,7 @@ Many SSL objectives exist, each defined by a different prediction target. We org
 \emph{Structural} objectives predict topological quantities computed purely from the graph, such as reachability between nodes, hop distances, landmark distances, or centrality, and thus remain defined even when no features are observed.
 \emph{Label-related} objectives predict a target built from the observed training labels, for instance the class distribution of a node's neighbors; they are semi-supervised, using labels available at training time but requiring none at inference.
 \emph{Contrastive} objectives do not predict a fixed target at all: they encode two views of the graph and encourage agreement (or reduced redundancy) between the resulting representations.
+Strictly speaking, the label-related objectives are semi-supervised rather than purely self-supervised, since they use observed training labels; we include them in this taxonomy of auxiliary objectives because they share the same pluggable role and are compared on equal footing with the others.
 
 \paragraph{(2) Locality.} The receptive field of the target. A \emph{local} target depends only on a node's immediate neighborhood, its adjacent nodes and their features or labels, and is therefore recoverable by a few rounds of message passing. 
 A \emph{global} target depends on a node's position in the graph as a whole, such as its distance to distant landmark nodes or its centrality, and captures long-range structure that local aggregation does not directly expose.
@@ -27,14 +28,15 @@ Note this is distinct from axis (3): a target can be stochastically resampled ye
 
 Table~\ref{tab:ssl-taxonomy} places representative objectives on these axes, grouped by type.
 
-\paragraph{Target difficulty.} Objectives also differ in how hard their target is to fit. An objective whose target has little variance across nodes, such as the mean of neighbor features that message passing tends to produce anyway, is easy: the loss falls to a small value within a few epochs and then stays flat. 
+\paragraph{Discussion on difficulty.} Beyond these four axes, objectives also differ in how hard their target is to fit. An objective whose target has little variance across nodes, such as the mean of neighbor features that message passing tends to produce anyway, is easy: the loss falls to a small value within a few epochs and then stays flat. 
 An objective whose target has high entropy or depends on a freshly sampled set of nodes each step, such as predicting a label distribution or a relation between sampled nodes, is hard: the loss keeps decreasing over training as the encoder is repeatedly asked new questions. Difficulty therefore follows from the axes above: static, low-variance, feature-space targets tend to be easy, whereas high-entropy or input-varying targets tend to be hard.
 In this work we examine whether this difficulty relates to the quality of the learned embeddings.
 
 \begin{table}[t]
 \centering
 \caption{Taxonomy of self-supervised objectives, grouped by type. ``Target'' names
-the predicted quantity; ``Input'' is per-node (fixed) or relational (varying).}
+the predicted quantity; ``Input'' is per-node (fixed) or relational (rel., varying).
+PE denotes positional encoding and betw.\ betweenness centrality.}
 \label{tab:ssl-taxonomy}
 \small
 \begin{tabular}{@{}llllll@{}}

@@ -1,6 +1,9 @@
 \section{Method}
 \label{sec:method}
 
+
+
+
 We present \textbf{NESS}, a framework for learning under missing node features.
 NESS is deliberately modular: a feature-propagation prefill and a message-passing
 encoder produce node representations, onto which a set of \emph{pluggable}
@@ -8,6 +11,19 @@ self-supervised objectives is layered. This modularity is intentional. Our study
 of which objectives help under missingness (Section~\ref{sec:experiments})
 is enabled by treating the auxiliary objective as an interchangeable component
 rather than a fixed part of the architecture.
+
+
+
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.85\linewidth]{figures/TGINA-method.pdf}
+    \caption{The pipeline of NESS. We first apply Feature Propagation to prefill missing nodes. We then optimize the contrastive and self-supervised objectives. Green boxes indicate loss objectives.}
+    \label{fig:method}
+\vspace{-15pt}
+\end{figure}
+
+
 
 \subsection{Problem Formulation and Notation}
 \label{sec:method-problem}
@@ -39,8 +55,7 @@ classification of the missing nodes $V_m$, measured by macro-F1.
 \subsection{Overview}
 \label{sec:method-overview}
 
-NESS comprises four stages (Figure~\ref{fig:overview}): (1)~a \emph{feature-
-propagation prefill} that fills missing rows of $\bar{\mathbf{X}}$ with long-range
+NESS comprises four stages (Figure~\ref{fig:method}): (1)~a \emph{feature-propagation prefill} that fills missing rows of $\bar{\mathbf{X}}$ with long-range
 structural signal; (2)~a message-passing \emph{encoder} that maps the prefilled
 features to representations $\mathbf{Z}$; (3)~a \emph{classification head} trained
 on observable labels; and (4)~a set of \emph{self-supervised objectives} that
@@ -98,7 +113,7 @@ representation,
     \mathbf{Z} = \tfrac{1}{2}\big(\mathbf{Z}^{(1)}+\mathbf{Z}^{(2)}\big),
 \end{equation}
 where $G^{(1)},G^{(2)}$ are edge-masked variants of $G$, and we denote by $E_m$ the edges removed to form $G^{(1)}$, which serve as targets for the edge-reconstruction objective below. The fused $\mathbf{Z}$ is
-used by the classification head and all objectives. The view-generation method is itself a modular choice; we experiment with several options in Section~\ref{sec:experiments} and adopt edge-masking as the best setting for our problem.
+used by the classification head and all objectives. The view-generation method is itself a modular choice; we adopt independent edge-masking, which we found effective in our setting.
 
 \subsection{Learning Objectives}
 \label{sec:method-objectives}
@@ -145,6 +160,10 @@ Our reported model instantiates $\mathcal{L}_{\text{ssl}}$ with two objectives. 
     \mathcal{L}_{\text{hist}} = \frac{1}{|V_o|}\sum_{v_i\in V_o}
       \mathrm{KL}\big(\mathbf{p}_i \,\|\, \mathrm{softmax}(h_{\text{hist}}(\mathbf{z}_i))\big).
 \end{equation}
+
+The label-histogram target is computed exclusively from the labels of observable (training) nodes; validation and test labels never enter any target, so the objective introduces no leakage of evaluation labels. The target for node $i$ is an aggregate of its graph neighbors' labels: the adjacency carries no self-loops, so a node's own label does not appear in its one-hop histogram. Because the objective reuses only labels already available to the supervised loss, it adds no information beyond the standard training signal, and is best understood as a semi-supervised auxiliary target rather than a source of leakage.
+
+
 The multi-hop reachability (path) objective samples random walks to obtain node pairs $(s,e)$ reachable within a few hops as positives and distant pairs $(s,e^-)$ as negatives, and scores them with a head $h_{\text{path}}$,
 \begin{equation}
     \label{eq:path}
@@ -167,14 +186,14 @@ The training loss is a weighted combination,
     + w_{\text{ssl}}\,\mathcal{L}_{\text{ssl}},
 \end{equation}
 with nonnegative weights $w_{\cdot}$. Setting $w_{\text{ssl}}=0$ recovers a strong
-self-supervision-free baseline used throughout our analysis.
+no-SSL baseline used throughout our analysis; it still retains the classification, edge-reconstruction, and contrastive terms, and drops only the auxiliary self-supervised objective.
 
 \subsection{Training}
 \label{sec:method-training}
 For large graphs, we partition $G$ into clusters following~\cite{chiang2019cluster} and train
 full-batch within each cluster; small graphs are trained full-batch directly.
-Self-supervised targets that depend on global structure (e.g.\ landmark distances,
-label histograms) are computed once on the full graph and indexed per cluster.
+Self-supervised targets that depend on non-local information (e.g.\ landmark distances, or
+label histograms aggregated over a multi-hop neighborhood) are computed once on the full graph and indexed per cluster.
 The per-epoch cost is dominated by the
 encoder forward/backward pass, $O(|E|\,h + n\,h^2)$ per cluster, matching standard
 message-passing GNNs. Full hyperparameter and optimization settings are given in Section~\ref{sec:setup}.

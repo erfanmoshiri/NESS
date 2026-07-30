@@ -16,7 +16,10 @@ Their statistics are summarized in Table~\ref{tab:datasets}. This spread lets us
 
 
 \paragraph{Missingness protocol.} 
-We simulate attribute-missing conditions by selecting a fraction $\rho$ of nodes uniformly at random and removing their entire feature vector (zero-filled). The feature mask and the label split coincide: the masked nodes are split evenly into validation and test sets, and the remaining feature-observable nodes form the training set. The classification loss is computed only on observable-node labels, so a node is either feature-observable and used for training or feature-missing and held out for evaluation, and no label or feature information from the evaluated nodes leaks into training.
+We simulate attribute-missing conditions by selecting a fraction $\rho$ of nodes uniformly at random and removing their entire feature vector (zero-filled). 
+Nodes labels are divided into training, validation, and test splits.
+% The feature mask and the label split coincide: the masked nodes are split evenly into validation and test sets, and the remaining feature-observable nodes form the training set
+% The classification loss is computed only on observable-node labels, so a node is either feature-observable and used for training or feature-missing and held out for evaluation, and no label or feature information from the evaluated nodes leaks into training.
 Message passing operates over the full graph throughout, so missing nodes still receive representations via propagation from their observed neighbors; only their labels and input features are withheld.
 We use $\rho=0.4$ for the main comparison against other benchmarks, $0.8$ for the rest of the experiments, and sweep $\rho \in \{0.2,0.4,0.6,0.8,0.9,0.95\}$ for the robustness analysis.
 
@@ -99,7 +102,7 @@ NESS attains the highest macro-F1 at every rate except $0.6$, where MATE is marg
 
 \begin{table}[t]
 \centering
-\caption{Macro-F1 on ogbn-arxiv as a function of the missing rate $\rho$, Best per rate in \textbf{bold}.}
+\caption{Macro-F1 on ogbn-arxiv as a function of the missing rate $\rho$. The best result at each rate is shown in bold.}
 \label{tab:rate}
 \small
 \begin{tabular}{@{}cccccc@{}}
@@ -155,7 +158,7 @@ single-view           & 0.416 & $-0.009$ \\
 \subsection{Why Objectives Help}
 \label{sec:exp-why}
 
-The objective ablation in Section~\ref{sec:exp-objectives} shows that objectives differ widely in how much they help. Here we identify the property that explains this: how class-relevant the objective's target is. For each objective with a per-node target, we fit a logistic-regression probe, a simple classifier trained to predict a node's class from the objective's target alone, and measure its macro-F1 as a proxy for the class-relevance of that target. We then relate it to the objective's downstream lift from Section~\ref{sec:exp-objectives}. Relational objectives (path, triplet), whose target is a relation between sampled nodes rather than a per-node vector, are excluded from this analysis.
+The objective ablation in Section~\ref{sec:exp-objectives} shows that objectives differ widely in how much they help. Here we investigate one property associated with these gains: how class-relevant the objective's target is. For each objective with a per-node target, we fit a logistic-regression probe, a simple classifier trained to predict a node's class from the objective's target alone, and measure its macro-F1 as a proxy for the class-relevance of that target. We then relate it to the objective's downstream lift from Section~\ref{sec:exp-objectives}. Relational objectives (path, triplet), whose target is a relation between sampled nodes rather than a per-node vector, are excluded from this analysis.
 
 Figure~\ref{fig:probe-vs-lift} plots the two quantities. The more class-relevant an objective's target, the more it improves downstream classification: the neighbor label-histogram (hist) has both the most class-relevant target and the largest lift, whereas the neighbor-spread target (stats) is the least class-relevant and is the only objective that does not help. Feature reconstruction (recon) also provides a useful signal, consistent with our prior work on feature-based self-supervision for imputation~\cite{moshiri2026neighborhood}. This explains why the label-aware histogram is the most reliable objective, and why we pair it with a structural objective in NESS.
 
@@ -173,8 +176,9 @@ Finally, we verified that a class-irrelevant objective cannot be made useful by 
 \begin{figure}[t]
 \centering
     \includegraphics[width=0.8\linewidth]{figures/e10_loss_curves.pdf}
-\caption{Per-objective self-supervised loss over training (each curve from a run with that objective alone.). Left: feature objectives saturate within a few epochs. Right: structural and label objectives keep decreasing throughout training.}
+\caption{Per-objective self-supervised loss over training (each curve is from a run using that objective alone). Left: feature objectives saturate within a few epochs. Right: structural and label objectives keep decreasing throughout training.}
 \label{fig:loss-curves}
+\vspace{-20pt}
 \end{figure}
 
 
@@ -195,8 +199,9 @@ Finally, we verified that a class-irrelevant objective cannot be made useful by 
   \caption{(Left) Target class-relevance versus downstream lift for per-node-target objectives. Each objective's target is probed for class information (x-axis); the more class-relevant the target, the larger the downstream improvement (y-axis).}
   \label{fig:probe-vs-lift}
 \vspace{-17pt}
-  \caption{(Right) Test macro-F1 on ogbn-arxiv as the missing rate increases. Both NESS (hist + path) and the no-SSL baseline decline, but the self-supervised model declines more slowly;}
+  \caption{(Right) Test macro-F1 on ogbn-arxiv as the missing rate increases. Both NESS (hist + path) and the no-SSL baseline decline, but the self-supervised model declines more slowly.}
   \label{fig:missingness}
+  \vspace{-20pt}
   \end{figure}
 
 
@@ -218,9 +223,9 @@ The benefit of self-supervision depends on how much the encoder is starved of fe
 \subsection{The Feature Regime}
 \label{sec:exp-regime}
 
-The benefit of self-supervision also depends on the type of node features. Neighborhood-centric objectives are built from aggregates of neighbor features, which are informative only when the features themselves are informative under aggregation. To test this, we apply the two label- and structure-based objectives (hist and its classification variant) to the four small graphs, whose attributes are sparse binary bag-of-words vectors, and compare the resulting lift to that observed on the dense-embedding graph ogbn-arxiv. Table~\ref{tab:regime} reports test macro-F1 at $80\%$ missingness.
+The benefit of self-supervision also depends on the type of node features. Neighborhood-centric objectives are built from aggregates of neighbor features, which are informative only when the features themselves are informative under aggregation. To test this, we apply the two label- and structure-based objectives (hist and path) to the four small graphs, whose attributes are sparse binary bag-of-words vectors, and compare the resulting lift to that observed on the dense-embedding graph ogbn-arxiv. Table~\ref{tab:regime} reports test macro-F1 at $80\%$ missingness.
 
-On the sparse binary graphs the objectives provide essentially no benefit: the change relative to the no-SSL baseline is within $\pm 0.01$ on all four datasets, with no consistent direction. This contrasts sharply with the dense-embedding graph, where the same label-aware objective improves macro-F1 by $0.020$. The explanation is mechanistic: neighborhood-centric targets require averaging neighbor features, which yields a meaningful, predictable signal for dense continuous attributes but is close to noise for sparse binary indicators. Neighborhood self-supervision is therefore effective in the dense-feature regime, which is both the practically prevalent one and the setting on which we focus.
+On the sparse binary graphs the objectives provide essentially no benefit: the change relative to the no-SSL baseline is within $\pm 0.01$ on all four datasets, with no consistent direction. This contrasts sharply with the dense-embedding graph, where the same objectives improve macro-F1 by $0.020$. The explanation is mechanistic: neighborhood-centric targets require averaging neighbor features, which yields a meaningful, predictable signal for dense continuous attributes but is close to noise for sparse binary indicators. Neighborhood self-supervision is therefore effective in the dense-feature regime, which is both the practically prevalent one and the setting on which we focus.
 
 \begin{table}[t]
 \centering
@@ -231,7 +236,7 @@ On the sparse binary graphs the objectives provide essentially no benefit: the c
 \toprule
 \textbf{Dataset} & \textbf{Features} & \textbf{no-SSL} & \textbf{$\Delta$ with SSL} \\
 \midrule
-Cora        & binary  & 0.798 & $-0.000$ \\
+Cora        & binary  & 0.798 & $0.000$ \\
 CiteSeer    & binary  & 0.595 & $+0.002$ \\
 AMAC        & binary  & 0.863 & $-0.005$ \\
 AMAP        & binary  & 0.876 & $+0.000$ \\
@@ -247,11 +252,11 @@ ogbn-arxiv  & dense   & 0.424 & $+0.020$ \\
 
 We now justify NESS's design choices and show that its performance is not brittle to hyperparameters. All studies are on ogbn-arxiv at $80\%$ missingness.
 
-\paragraph{Design choices.} Figure~\ref{fig:design} compares the two principal architectural decisions, each varied in isolation. For the encoder, GraphSAGE outperforms GAT and GCN; its separate self-transformation preserves each node's prefilled signal through depth, which a mean-based aggregator does not. For the prefill, Feature Propagation clearly outperforms a single round of neighbor-mean imputation and zero-filling, confirming that long-range diffusion recovers signal that a single aggregation step or no imputation cannot. (The two panels are separate ablations and share only the metric axis; absolute values are not directly comparable across them.)
+\paragraph{Design choices:} Figure~\ref{fig:design} compares the two principal architectural decisions, each varied in isolation. For the encoder, GraphSAGE outperforms GAT and GCN; its separate self-transformation preserves each node's prefilled signal through depth, unlike GCN-style aggregation that mixes a node's own signal with its neighbors' in a single term. For the prefill, Feature Propagation clearly outperforms a single round of neighbor-mean imputation and zero-filling, confirming that long-range diffusion recovers signal that a single aggregation step or no imputation cannot. (The two panels are separate ablations and share only the metric axis; absolute values are not directly comparable across them.)
 
-\paragraph{Component ablation.} Table~\ref{tab:components} removes NESS's learning components one at a time. Removing the self-supervised objectives (no-SSL) and, more so, the entire two-view contrastive structure (single-view) both reduce performance, and removing the Feature-Propagation prefill (zero-fill) is the most damaging. Each component contributes, and the prefill is the single most important.
+\paragraph{Component ablation:} Table~\ref{tab:components} removes NESS's learning components one at a time. Removing the self-supervised objectives (no-SSL) and, more so, the entire two-view contrastive structure (single-view) both reduce performance, and removing the Feature-Propagation prefill (zero-fill) is the most damaging. Each component contributes, and the prefill is the single most important.
 
-\paragraph{Hyperparameter sensitivity.} Figure~\ref{fig:hp} varies four hyperparameters one at a time around the chosen configuration. Performance is stable and peaks near the selected values: a deeper (three-layer) encoder and lower dropout ($0.3$) are preferable, and the learning rate is stable around $10^{-3}$. Up-weighting the classification term improves results and then plateaus; we set its weight to $3$, a stable point on this plateau rather than the extreme, to avoid over-emphasizing the supervised term at the expense of the auxiliary signal that matters at higher missingness.
+\paragraph{Hyperparameter sensitivity:} Figure~\ref{fig:hp} varies four hyperparameters one at a time around the chosen configuration; all values are selected on validation performance. Performance is stable, and the chosen settings lie within a stable region: a deeper (three-layer) encoder and lower dropout ($0.3$) are preferable, and the learning rate is stable around $10^{-3}$. Up-weighting the classification term improves results and then plateaus; we set its weight to $3$, a stable point on this plateau rather than the extreme, to avoid over-emphasizing the supervised term at the expense of the auxiliary signal that matters at higher missingness.
 
 \begin{figure}[t]
 \centering
@@ -259,12 +264,13 @@ We now justify NESS's design choices and show that its performance is not brittl
 \vspace{-20pt}
 \caption{Design choices (chosen option in red), on ogbn-arxiv at $80\%$ missingness. GraphSAGE is the best encoder and Feature Propagation the best prefill. The two panels are independent ablations.}
 \label{fig:design}
+\vspace{-20pt}
 \end{figure}
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figures/e11_hp_sensitivity.pdf}
-\caption{Hyperparameter sensitivity: each knob is varied with the others fixed; the chosen default is marked in red. Performance is stable and peaks near the selected settings.}
+\caption{Hyperparameter sensitivity: each knob is varied with the others fixed; the chosen default is marked in red. Performance is stable, and the selected settings lie within a stable region.}
 \label{fig:hp}
 \end{figure}
 
@@ -316,12 +322,12 @@ PaGCN     & 0.300 & 0.318 & $+0.018$ \\
 \subsection{Scalability}
 \label{sec:exp-scalability}
 
-Finally, we confirm that NESS is practical at scale. Figure~\ref{fig:scalability} plots test macro-F1 against peak GPU memory for all methods on ogbn-arxiv, with bubble size indicating training time. NESS attains the highest accuracy at a peak memory of $1.3$~GB, comparable to the per-node baseline (MATE) and well within a single GPU; its self-supervised objectives and prefill add no memory penalty relative to a standard clustered GNN. Its training time is higher than the simpler baselines (larger bubble), reflecting the auxiliary objectives computed each epoch, but remains on the order of minutes on a single GPU.
+Finally, we confirm that NESS is practical at scale. Figure~\ref{fig:scalability} plots test macro-F1 against peak GPU memory for all methods on ogbn-arxiv, with bubble size indicating training time. NESS attains the highest macro-F1 at a peak memory of $1.3$~GB, comparable to the per-node baseline (MATE) and well within a single GPU; its self-supervised objectives and prefill add only a small memory overhead relative to a standard clustered GNN. Its training time is higher than the simpler baselines (larger bubble), reflecting the auxiliary objectives computed each epoch, but remains on the order of minutes on a single GPU.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.6\linewidth]{figures/e6_scalability_bubble.pdf}
-\caption{Accuracy versus peak GPU memory on ogbn-arxiv at $80\%$ missingness; bubble size is training time. NESS (red) attains the highest macro-F1 at memory comparable to other GNNs, confirming it scales without a memory penalty.}
+\caption{Macro-F1 versus peak GPU memory on ogbn-arxiv at $80\%$ missingness; bubble size is training time. NESS (red) attains the highest macro-F1 at memory comparable to other GNNs, confirming it scales with manageable memory usage.}
 \label{fig:scalability}
  \vspace{-20pt} 
 

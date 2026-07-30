@@ -6,7 +6,7 @@ Some studies consider several forms of incomplete information together. For exam
 Other studies focus mainly on label scarcity, where only a small number of node labels are available. 
 Graph Structure Learning methods, such as IDGL and Pro-GNN, learn or correct graph topology while assuming that node features are observed \cite{chen2020iterative,jin2020graph}. 
 In this work, we focus on node classification when the entire feature vectors of some nodes are missing, while the graph structure is fully observed and labels are available for the downstream task.
-In the first part, we discuss graph learning with self-supervised methods. We then discuss handling missing information in graphs through imputation and learning under missingness.
+In the first part, we discuss handling missing information in graphs through imputation and learning under missingness. We then discuss graph learning with self-supervised methods.
 
 
 \subsection{Graph Learning Under Missing Information}
@@ -57,7 +57,7 @@ representations support downstream tasks. Our work belongs to this line, so we r
 The next two subsections discuss general SSL graph-learning methods that operate on fully observed graphs. We then discuss methods that adapt SSL to learning under missing information.
 
 
-\subsubsection{Contrastive and multi-view self-supervision}
+\subsubsection{Contrastive and Multi-View Self-Supervision}
 \label{sec:related-contrastive}
 
 The dominant approach learns node representations by making different views of a graph
@@ -107,9 +107,9 @@ elsewhere.
 
 Masking, though, is a pretext applied to data that is otherwise complete. When attributes are
 genuinely missing, the feature-reconstruction signal largely overlaps with what neighborhood
-aggregation already recovers, so it adds little to what the encoder computes on its own. Our
-experiments bear this out. A feature-reconstruction objective plateaus early and gives no
-downstream gain under missingness. Faithful reconstruction and a useful representation are
+aggregation already recovers, so it adds relatively little to what the encoder computes on its own. Our
+experiments bear this out. A pure feature-reconstruction objective tends to plateau early and yields only a
+limited downstream gain under missingness. Faithful reconstruction and a useful representation are
 not the same goal in this regime.
 
 
@@ -136,7 +136,7 @@ and reconstruction-centric, framed around imputation quality rather than downstr
 under severe missingness. Outside the homogeneous setting, HGCA~\cite{he2022hgca} joins attribute
 completion and representation learning for heterogeneous graphs through an unsupervised
 contrastive objective, completing missing attributes at a fine granularity with an augmented
-network. Our own conference work~\cite{ncssl} introduced a neighborhood-centric self-supervised
+network. Our own conference work~\cite{moshiri2026neighborhood} introduced a neighborhood-centric self-supervised
 formulation, which the present study extends.
 
 D²PT leans on graph topology when node features provide limited information, and considers graph learning with incomplete features, incomplete structure, and limited labels at the same time~\cite{liu2023learning}. It first applies long-range PageRank-based propagation to spread the available feature information across the graph. It then constructs a global k-nearest-neighbour graph from the propagated features and aligns the representations learned from the original and global graph channels. The model is trained using classification losses and a prototype-alignment objective. D²PT does not explicitly reconstruct missing features, and its experiments consider entry-wise feature missingness together with missing edges and limited labels. It therefore addresses a broader weak-information setting rather than features-only attribute-missing learning.
@@ -158,10 +158,22 @@ features over hypergraphs to cope with missing attributes. We note these links b
 treat them as central, since they differ from our problem in task or in graph model.
 
 
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\linewidth]{figures/LR-tree.pdf}
+    \caption{Taxonomy of methods reviewed in Section 2.}
+    \label{fig:LR}
+\vspace{-20pt}
+\end{figure}
+
+
+
+
 \subsection{Positioning of Our Work}
 \label{sec:related-positioning}
 
-
+Figure~\ref{fig:LR} illustrates an breakdown summary of related work.
 Seen together, the prior work leaves a clear opening. Imputation methods optimize reconstruction rather than downstream utility, and the learned variants do not scale or generalize to unseen missing nodes; imputation-free architectural methods add no self-supervisory signal. General graph SSL is powerful but untested for missing features, and its own literature shows view
 construction to be a brittle, handcrafted axis. The SSL methods built for attribute-missing graphs each fix one objective and one view without asking which choices matter, and report results
 only at small scale and a single missing rate.

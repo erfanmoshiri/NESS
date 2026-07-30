@@ -1,10 +1,10 @@
 \section*{Appendix A. Formal Definitions of Evaluated Objectives}
 \label{app:objectives}
 
-This appendix gives the precise definition of each self-supervised objective evaluated in Section~\ref{sec:experiments}. All objectives operate on the encoder output $\mathbf{Z}$ (Section~\ref{sec:method-encoder}) and use only information that survives missingness, namely graph structure, observed neighbor features, or observed training labels. We write $\mathcal{N}_k(i)$ for the $k$-hop neighborhood of node $i$, $V_o$ for the observable set, and $h_{(\cdot)}$ for a lightweight per-objective prediction head applied to $\mathbf{Z}$. Unless noted, $k$ matches the value used in training.
+This appendix gives the precise definition of each self-supervised objective evaluated in Section~\ref{sec:exp-objectives}. All objectives operate on the encoder output $\mathbf{Z}$ (Section~\ref{sec:method-encoder}) and use only information that survives missingness, namely graph structure, observed neighbor features, or observed training labels. We write $\mathcal{N}_k(i)$ for the $k$-hop neighborhood of node $i$, $V_o$ for the observable set, and $h_{(\cdot)}$ for a lightweight per-objective prediction head applied to $\mathbf{Z}$. Unless noted, $k$ matches the value used in training.
 
 \paragraph{Feature-related objectives.} These predict per-node targets derived from observable neighbor features and are trained with a mean-squared error.
-The \emph{centroid} objective predicts the mean of a node's observable neighbors' features,
+The \emph{centroid} objective predicts the mean of a node's observable neighbors' features (for nodes with a non-empty observable neighborhood),
 \begin{equation}
     \mathbf{t}^{\text{cen}}_i = \frac{1}{|\mathcal{N}_k(i)\cap V_o|}\!\!\sum_{j\in\mathcal{N}_k(i)\cap V_o}\!\!\mathbf{x}_j,
     \qquad
@@ -18,7 +18,7 @@ The \emph{recon} objective is a masked-feature self-reconstruction: at each step
 where $H\subset V_o$ is the freshly sampled held-out set.
 
 \paragraph{Structural objectives.} These predict topological targets computed purely from the graph and are defined even when no features are observed.
-The \emph{path} objective is a stochastic multi-hop link prediction. A fresh batch of random walks of length $\ell$ yields positive pairs $(s,e)$ with $e$ reachable within $\ell$ hops of $s$; negatives $(s,e^-)$ draw $e^-$ from the set of nodes at least $3$ hops from $s$. With a scoring head $h_{\text{path}}$ on the elementwise product of endpoints,
+The \emph{path} objective is a stochastic multi-hop link prediction. A fresh batch of random walks of length $\ell=2$ yields positive pairs $(s,e)$ with $e$ reachable within $\ell$ hops of $s$; negatives $(s,e^-)$ draw $e^-$ from the set of nodes at least $3$ hops from $s$. Since $\ell<3$, the positive and negative sets do not overlap. With a scoring head $h_{\text{path}}$ on the elementwise product of endpoints,
 \begin{equation}
     \mathcal{L}_{\text{path}} = \tfrac{1}{2}\Big[
         \mathrm{BCE}\big(h_{\text{path}}(\mathbf{z}_s\!\odot\!\mathbf{z}_e),\,1\big)
@@ -35,9 +35,64 @@ The \emph{anchor} objective regresses each node's normalized hop-distances to $K
 \begin{equation}
     \mathbf{p}_i = \mathrm{normalize}\Big(\sum_{j\in\mathcal{N}_k(i)\cap V_o} w_{ij}\,\mathbf{e}_{y_j}\Big),
 \end{equation}
-where $\mathbf{e}_{y_j}$ is the one-hot label of neighbor $j$ and $w_{ij}$ a proximity weight. The prediction is trained with a KL divergence over observable nodes with at least one observable neighbor,
+where $\mathbf{e}_{y_j}$ is the one-hot label of neighbor $j$ and $w_{ij}$ a proximity weight. The prediction is trained with a KL divergence over observable nodes that have at least one observable neighbor,
 \begin{equation}
-    \mathcal{L}_{\text{hist}} = \frac{1}{|V_o'|}\sum_{i\in V_o'} \mathrm{KL}\big(\mathbf{p}_i \,\|\, \mathrm{softmax}(h_{\text{hist}}(\mathbf{z}_i))\big).
+    \mathcal{L}_{\text{hist}} = \frac{1}{|V_o|}\sum_{i\in V_o} \mathrm{KL}\big(\mathbf{p}_i \,\|\, \mathrm{softmax}(h_{\text{hist}}(\mathbf{z}_i))\big).
 \end{equation}
 
 \paragraph{Contrastive objectives.} These do not predict a fixed target but encourage agreement between the two views $\mathbf{Z}^{(1)},\mathbf{Z}^{(2)}$ (Section~\ref{sec:method-encoder}). The default is the Barlow-Twins redundancy-reduction loss of Equation~\eqref{eq:con}. We additionally evaluate \emph{InfoNCE}, which maximizes agreement between the two views of the same node against other nodes in the batch, and \emph{prototype-InfoNCE}, which contrasts nodes against per-class prototypes formed from observable labels.
+
+
+
+
+
+
+\section*{Appendix B. Hyperparameters and Design Choices}
+\label{sec:setup-hparams}
+
+Table~\ref{tab:hparams} lists the full NESS configuration used in all experiments, grouped by the two feature regimes: the large dense-embedding graph (ogbn-arxiv) and the small sparse binary bag-of-words graphs (Cora, CiteSeer, AMAP, AMAC). The architecture, self-supervised objectives, and loss weights are shared across both regimes; the settings that differ are the learning rate and the use of cluster-based batching, both dictated by graph scale rather than by tuning. These values were selected once on ogbn-arxiv (Section~\ref{sec:exp-design}) and held fixed thereafter.
+
+\begin{table}[t]
+\centering
+\caption{NESS hyperparameters and design choices. The architecture and objectives are shared; only the scale-dependent settings (learning rate, batching) differ between regimes.}
+\label{tab:hparams}
+\small
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Setting} & \textbf{ogbn-arxiv} & \textbf{Binary BoW graphs} \\
+ & (dense) & (Cora/CiteSeer/AMAP/AMAC) \\
+\midrule
+\multicolumn{3}{@{}l}{\emph{\textbf{Architecture}}} \\
+Prefill                & Feature Propagation & Feature Propagation \\
+Prefill iterations $T$ & 40 & 40 \\
+Encoder                & GraphSAGE & GraphSAGE \\
+Layers $L$             & 3 & 3 \\
+Hidden width $h$       & 128 & 128 \\
+Dropout                & 0.3 & 0.3 \\
+Encoder / decoder channels & 256 / 64 & 256 / 64 \\
+\midrule
+\multicolumn{3}{@{}l}{\emph{\textbf{Views and objectives}}} \\
+View 1 / View 2        & edge-mask / edge-mask & edge-mask / edge-mask \\
+Edge-mask rate $p$     & 0.7 & 0.7 \\
+View fusion            & average & average \\
+Contrastive            & Barlow-Twins ($\lambda=0.005$) & Barlow-Twins ($\lambda=0.005$) \\
+SSL objectives         & hist + path & hist + path \\
+SSL neighborhood $k$   & 2 & 2 \\
+Path walk length $\ell$ & 2 & 2 \\
+\midrule
+\multicolumn{3}{@{}l}{\emph{\textbf{Loss weights}}} \\
+$w_{\text{cls}}$       & 3.0 & 3.0 \\
+$w_{\text{edge}}$      & 1.0 & 1.0 \\
+$w_{\text{con}}$       & 0.5 & 0.5 \\
+$w_{\text{ssl}}$ (hist, path) & 1.0, 1.0 & 1.0, 1.0 \\
+\midrule
+\multicolumn{3}{@{}l}{\emph{\textbf{Optimization}}} \\
+Optimizer              & Adam & Adam \\
+Learning rate          & $10^{-3}$ & $10^{-2}$ ($10^{-3}$ for AMAC) \\
+Weight decay           & $5\times10^{-5}$ & $5\times10^{-5}$ \\
+Epochs                 & 800 & 800 \\
+Early stopping         & val macro-F1, patience 20 & val macro-F1, patience 20 \\
+Batching               & cluster-based (50 parts) & full-batch \\
+\bottomrule
+\end{tabular}
+\end{table}
