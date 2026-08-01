@@ -1,0 +1,6 @@
+=================================================
+E3 Objective Ablation | NESS | ogbn-arxiv | MCAR @ 0.6 | view2=ppr
+epochs=800 patience=20 | contrastive ON unless noted
+Started: Fri Jul 31 05:31:06 AM UTC 2026
+=================================================
+  running: ssl_centroid ...
